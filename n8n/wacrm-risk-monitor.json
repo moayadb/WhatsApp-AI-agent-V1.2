@@ -1,0 +1,373 @@
+{
+  "name": "wacrm Risk Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wacrm-risk",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-wacrm",
+      "name": "wacrm Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -560,
+        300
+      ],
+      "webhookId": "wacrm-risk-monitor"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-base-url",
+              "name": "wacrmBaseUrl",
+              "value": "https://REPLACE-WITH-YOUR-TUNNEL.trycloudflare.com",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "config",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Accepts only wacrm 'message.received' deliveries and flattens them.\n// Everything else (status updates, conversation.created) ends the run: n8n\n// already answered 200 via the Webhook node's immediate-response mode.\n\nconst out = [];\n\nfor (const item of $input.all()) {\n  const body = item.json.body ?? item.json;\n\n  if (body?.event !== 'message.received') continue;\n  const d = body.data ?? {};\n  if (!d.conversation_id) continue;\n\n  out.push({\n    json: {\n      deliveryId: body.id ?? '',\n      conversationId: d.conversation_id,\n      contactId: d.contact_id ?? '',\n      whatsappMessageId: d.whatsapp_message_id ?? '',\n      contentType: d.content_type ?? 'text',\n      text: typeof d.text === 'string' ? d.text : '',\n      occurredAt: body.occurred_at ?? new Date().toISOString(),\n    },\n  });\n}\n\nreturn out;"
+      },
+      "id": "filter-event",
+      "name": "Filter Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').first().json.wacrmBaseUrl }}/api/v1/contacts/{{ $json.contactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "fetch-contact",
+      "name": "Fetch Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').first().json.wacrmBaseUrl }}/api/v1/conversations/{{ $('Filter Event').item.json.conversationId }}/messages?limit=20",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "fetch-thread",
+      "name": "Fetch Thread",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        320,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds the transcript the model reads.\n//\n// The wacrm API returns messages NEWEST first; the model reads better in\n// chronological order, so reverse. Both directions are kept — assessing\n// risk in a sales conversation requires seeing what the staff said, not\n// just the customer.\n\nconst MAX_CHARS = 6000;\n\nreturn $input.all().map((item, i) => {\n  const resp = item.json;\n  const messages = Array.isArray(resp.data) ? resp.data : [];\n  const event = $('Filter Event').itemMatching(i).json;\n  const contactResp = $('Fetch Contact').itemMatching(i).json;\n  const contact = contactResp.data ?? {};\n\n  const lines = messages\n    .slice()\n    .reverse()\n    .map((m) => {\n      const who = m.direction === 'inbound' ? 'Customer' : 'Staff';\n      const text = (m.content_text ?? m.text ?? '').toString().trim();\n      const kind = m.content_type && m.content_type !== 'text' ? '[' + m.content_type + '] ' : '';\n      return text || kind ? who + ': ' + kind + text : null;\n    })\n    .filter(Boolean);\n\n  let transcript = lines.join('\\n');\n  if (transcript.length > MAX_CHARS) {\n    transcript = '…' + transcript.slice(-MAX_CHARS);\n  }\n  if (!transcript) transcript = 'Customer: ' + (event.text || '(empty message)');\n\n  return {\n    json: {\n      transcript,\n      latestMessage: event.text,\n      occurredAt: event.occurredAt,\n      contactName: (contact.name ?? '').toString(),\n      contactPhone: (contact.phone ?? '').toString(),\n      conversationId: event.conversationId,\n      deliveryId: event.deliveryId,\n    },\n  };\n});"
+      },
+      "id": "build-transcript",
+      "name": "Build Transcript",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.transcript }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a conversation-risk analyst monitoring WhatsApp exchanges between customers and sales staff.\n\nYou receive a chronological transcript (\"Customer:\" / \"Staff:\" lines). Assess the CURRENT risk of the conversation as a whole, weighing the most recent messages most heavily.\n\nEscalate (shouldEscalate=true) when you see:\n- an angry, threatening, or abusive customer\n- churn risk: cancellation threats, competitor mentions with intent to leave\n- disputes over money: refunds, chargebacks, claims of being overcharged\n- legal, regulatory, or press threats\n- scam or fraud signals from either side\n- STAFF misconduct: rudeness or hostility toward the customer, unauthorized discounts or promises, requesting payment outside official channels, sharing another customer's data\n- an explicit request for a manager or human escalation\n\nDo NOT escalate normal negotiation, routine questions, or friendly small talk.\n\nPriority:\n- \"urgent\": threats (legal, physical, press), fraud in progress, staff misconduct, money already lost\n- \"high\": clear churn risk, refund dispute, very angry customer, same-day attention needed\n- \"medium\": tension building, mild dissatisfaction, worth a supervisor's glance today\n\n\"reason\" is one sentence (under 25 words) telling a supervisor what to look at. Name who caused the risk (customer or staff). Always answer in English."
+        }
+      },
+      "id": "risk-agent",
+      "name": "Risk Assessment Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        760,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "risk-model",
+      "name": "Risk Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        700,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"shouldEscalate\": {\n      \"type\": \"boolean\",\n      \"description\": \"true only if a supervisor should review this conversation\"\n    },\n    \"priority\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"urgent\",\n        \"high\",\n        \"medium\"\n      ]\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"one sentence, who caused the risk and why it matters\"\n    }\n  },\n  \"required\": [\n    \"shouldEscalate\",\n    \"priority\",\n    \"reason\"\n  ]\n}"
+      },
+      "id": "risk-parser",
+      "name": "Risk Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        900,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Maps the AI verdict onto the Firestore document the Flutter app reads.\n// createdAt MUST be timestampValue — as a stringValue the app's\n// Timestamp.toDate() yields null and cards show \"Unknown time\".\n\nconst ALLOWED = ['urgent', 'high', 'medium'];\n\nreturn $input.all().map((item, i) => {\n  let ai = item.json.output ?? item.json;\n  if (typeof ai === 'string') {\n    try { ai = JSON.parse(ai); } catch (e) { ai = {}; }\n  }\n\n  const ctx = $('Build Transcript').itemMatching(i).json;\n\n  const rawPriority = String(ai.priority ?? '').trim().toLowerCase();\n  const priority = ALLOWED.includes(rawPriority) ? rawPriority : 'medium';\n\n  const nameParts = String(ctx.contactName ?? '').trim().split(/\\s+/).filter(Boolean);\n  const firstName = nameParts[0] ?? '';\n  const lastName = nameParts.slice(1).join(' ');\n\n  const digits = String(ctx.contactPhone ?? '').replace(/[^0-9]/g, '');\n  const phone = digits ? '+' + digits : '';\n\n  return {\n    json: {\n      shouldEscalate: ai.shouldEscalate === true || ai.shouldEscalate === 'true',\n      firestore: {\n        fields: {\n          priority: { stringValue: priority },\n          reason: { stringValue: String(ai.reason ?? '').slice(0, 500) },\n          firstName: { stringValue: firstName },\n          lastName: { stringValue: lastName },\n          phone: { stringValue: phone },\n          message: { stringValue: String(ctx.latestMessage ?? '').slice(0, 4000) },\n          createdAt: { timestampValue: ctx.occurredAt || new Date().toISOString() },\n        },\n      },\n    },\n  };\n});"
+      },
+      "id": "build-alert",
+      "name": "Build Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-escalate",
+              "leftValue": "={{ $json.shouldEscalate }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-escalate",
+      "name": "Risky?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://firestore.googleapis.com/v1/projects/whatsapp-ai-agent-waseem/databases/(default)/documents/alerts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.firestore) }}",
+        "options": {}
+      },
+      "id": "firestore-write",
+      "name": "Create Firestore Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1420,
+        200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "no-op",
+      "name": "No Risk",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1420,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "wacrm Webhook": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Filter Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Event": {
+      "main": [
+        [
+          {
+            "node": "Fetch Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Contact": {
+      "main": [
+        [
+          {
+            "node": "Fetch Thread",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Thread": {
+      "main": [
+        [
+          {
+            "node": "Build Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Transcript": {
+      "main": [
+        [
+          {
+            "node": "Risk Assessment Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Risk Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Risk Assessment Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Risk Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Risk Assessment Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Risk Assessment Agent": {
+      "main": [
+        [
+          {
+            "node": "Build Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Alert": {
+      "main": [
+        [
+          {
+            "node": "Risky?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Risky?": {
+      "main": [
+        [
+          {
+            "node": "Create Firestore Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Risk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

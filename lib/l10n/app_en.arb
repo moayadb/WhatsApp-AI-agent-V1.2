@@ -1,0 +1,205 @@
+{
+  "@@locale": "en",
+  "appTitle": "Sanayed",
+  "loginSubtitle": "AI-powered alerts from your WhatsApp operations",
+  "emailLabel": "Work email",
+  "sendMagicLink": "Send sign-in link",
+  "notAuthorized": "This email is not authorized to create an account.",
+  "sendFailed": "Could not send the sign-in link. Please try again.",
+  "linkFailed": "That sign-in link is invalid or expired. Request a new one.",
+  "linkSentTitle": "Check your inbox",
+  "linkSentBody": "We sent a sign-in link to {email}. Open it on this device to continue.",
+  "@linkSentBody": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "resendLink": "Resend sign-in link",
+  "useDifferentEmail": "Use a different email",
+  "confirmEmailTitle": "Confirm your email",
+  "confirmEmailBody": "You opened the link in a different browser. Re-enter the address you requested it for to finish signing in.",
+  "completeSignIn": "Complete sign-in",
+  "orLabel": "or",
+  "continueWithGoogle": "Continue with Google",
+  "googleFailed": "Google sign-in did not complete. Please try again.",
+  "greetingMorning": "Good morning, {name}",
+  "@greetingMorning": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "greetingEvening": "Good evening, {name}",
+  "@greetingEvening": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "updatedAgo": "Updated {time}",
+  "@updatedAgo": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "connActive": "Active",
+  "connNoRecent": "No recent messages",
+  "connConnecting": "Connecting",
+  "connDbError": "Database issue",
+  "connSheetTitle": "WhatsApp activity",
+  "connSheetBody": "This status is inferred from message activity, not a live WhatsApp connection.",
+  "connLastMessage": "Last message arrived {time}",
+  "@connLastMessage": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "connNoMessagesYet": "No messages received yet",
+  "connDbErrorBody": "The app could not reach the database. Alerts shown may be out of date.",
+  "tabDashboard": "Dashboard",
+  "tabAlerts": "Alerts",
+  "tabSettings": "Settings",
+  "chipAll": "All",
+  "deptSales": "Sales",
+  "deptOperations": "Operations",
+  "deptDelivery": "Delivery",
+  "deptFinance": "Finance",
+  "deptSupport": "Support",
+  "deptManagement": "Management",
+  "deptUnknown": "Other",
+  "prioUrgent": "Urgent",
+  "prioLow": "Low",
+  "prioMedium": "Medium",
+  "prioHigh": "High",
+  "prioUnknown": "—",
+  "statusNew": "New",
+  "statusDone": "Done",
+  "statusIgnored": "Ignored",
+  "catCustomerComplaint": "Customer complaint",
+  "catCustomerDissatisfaction": "Customer dissatisfaction",
+  "catRefundRequest": "Refund request",
+  "catDeliveryProblem": "Delivery problem",
+  "catPaymentIssue": "Payment issue",
+  "catWrongOrDamagedOrder": "Wrong or damaged order",
+  "catQualityIssue": "Quality issue",
+  "catLegalThreat": "Legal threat",
+  "catVipIssue": "VIP issue",
+  "catGeneralInquiry": "General inquiry",
+  "catOther": "Other",
+  "dirIncoming": "Incoming",
+  "dirOutgoing": "Outgoing",
+  "msgSourceCustomer": "Customer message",
+  "msgSourceAudio": "Voice note analysis",
+  "msgSourceImage": "Image analysis",
+  "captionLabel": "Customer caption",
+  "noText": "No text",
+  "unknownSender": "Unknown",
+  "emptyAlertsTitle": "No alerts in this section",
+  "emptyAlertsBody": "New alerts will appear here as they arrive.",
+  "detailTitle": "Alert",
+  "messageLabel": "Message",
+  "reasonLabel": "Why it was flagged",
+  "actionLabel": "Recommended action",
+  "markDone": "Mark as done",
+  "markIgnored": "Ignore",
+  "confirmDoneTitle": "Mark as done?",
+  "confirmDoneBody": "Are you sure you want to mark this alert as completed?",
+  "confirmIgnoreTitle": "Ignore alert?",
+  "confirmIgnoreBody": "Are you sure you want to ignore this alert?",
+  "confirmRevertTitle": "Revert to new?",
+  "confirmRevertBody": "This alert will return to the new alerts list.",
+  "confirm": "Confirm",
+  "cancel": "Cancel",
+  "resolvedDone": "This alert is completed",
+  "resolvedIgnored": "This alert was ignored",
+  "completedAt": "Completed {time}",
+  "@completedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "revertStatus": "Revert",
+  "statusReverted": "Status reverted",
+  "soundEnabled": "Alert sound",
+  "exportTitle": "Export",
+  "exportExcel": "Excel",
+  "exportPdf": "PDF",
+  "exportEmail": "Email",
+  "exportPreparing": "Preparing…",
+  "exportDone": "Exported",
+  "exportFailed": "Export failed",
+  "emailDialogTitle": "Email report",
+  "emailFieldLabel": "Recipient email",
+  "emailSend": "Send",
+  "emailSent": "Request sent",
+  "emailNotConfigured": "Backend endpoint not configured yet",
+  "metricAvgHandling": "Avg handling time",
+  "statusSaved": "Saved",
+  "statusSaveFailed": "Could not save — check your connection and try again",
+  "metricTotal": "Total",
+  "metricNew": "New",
+  "metricHigh": "Urgent & high",
+  "metricDone": "Done",
+  "chartByCategory": "By category",
+  "chartLast7Days": "Last 7 days",
+  "chartPriority": "By priority",
+  "emptyDashboard": "Nothing to chart yet",
+  "emptyDashboardBody": "Once alerts arrive, your numbers will show up here.",
+  "metricAnalyzed": "Messages analyzed",
+  "metricAlerts": "Alerts",
+  "metricEscalationRate": "Escalation rate",
+  "metricOpenBacklog": "Open backlog",
+  "sectionWorkload": "Workload",
+  "sectionBreakdown": "Breakdown",
+  "sectionCustomers": "Customers",
+  "chartEscalationSplit": "Alerts vs routine messages",
+  "legendAlerts": "Alerts",
+  "legendQuiet": "No action needed",
+  "chartVolumeOverTime": "Volume over time",
+  "chartPeakHours": "Peak hours",
+  "chartByDepartment": "By department",
+  "chartMessageTypes": "Message types",
+  "chartHandling": "Handling status",
+  "msgTypeText": "Text",
+  "msgTypeImage": "Images",
+  "msgTypeAudio": "Voice",
+  "rangeToday": "Today",
+  "rangeWeek": "7 days",
+  "rangeMonth": "30 days",
+  "rangeAll": "All",
+  "filtersLabel": "Filters",
+  "clearFilters": "Clear",
+  "statUniqueContacts": "Unique customers",
+  "statRepeatContacts": "Repeat customers",
+  "topContacts": "Most alerts raised",
+  "handledRate": "Handled",
+  "alertsCount": "{count} alerts",
+  "@alertsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsAccount": "Account",
+  "settingsAppearance": "Preferences",
+  "roleOwner": "Business owner",
+  "roleSales": "Sales manager",
+  "rolePurchasing": "Purchasing manager",
+  "darkMode": "Dark mode",
+  "language": "Language",
+  "connectionStatus": "Connection status",
+  "signOut": "Sign out",
+  "errorTitle": "Something went wrong",
+  "retry": "Retry"
+}

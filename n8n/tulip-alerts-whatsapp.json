@@ -1,0 +1,607 @@
+{
+  "name": "Tulip Alerts – WhatsApp Escalations",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-incoming",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-incoming",
+      "name": "Incoming WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        300
+      ],
+      "webhookId": "tulip-alerts-whatsapp"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Flattens an incoming WhatsApp webhook into one predictable shape.\n//\n// Two payload shapes are supported because they look nothing alike:\n//   - Evolution API  -> media arrives inline as base64\n//   - Meta Cloud API -> media arrives as an id you must fetch separately\n// Returning [] for an item silently ends the run, which is what we want for\n// delivery receipts, presence updates and our own outbound messages.\n\nconst out = [];\n\nfor (const item of $input.all()) {\n  // The Webhook node nests the payload under .body\n  const body = item.json.body ?? item.json;\n\n  // ---------- Meta WhatsApp Business Cloud API ----------\n  const metaValue = body?.entry?.[0]?.changes?.[0]?.value;\n  if (metaValue?.messages?.length) {\n    const msg = metaValue.messages[0];\n    const contact = metaValue.contacts?.[0];\n\n    let type = 'text';\n    if (msg.type === 'image') type = 'image';\n    else if (msg.type === 'audio' || msg.type === 'voice') type = 'audio';\n\n    out.push({\n      json: {\n        source: 'meta',\n        type,\n        text: msg.text?.body ?? msg.image?.caption ?? '',\n        // Cloud API gives only a media id; see README note on fetching it.\n        base64: '',\n        mediaId: msg.image?.id ?? msg.audio?.id ?? msg.voice?.id ?? '',\n        mimeType: msg.image?.mime_type ?? msg.audio?.mime_type ?? '',\n        phone: msg.from ?? contact?.wa_id ?? '',\n        pushName: contact?.profile?.name ?? '',\n        messageId: msg.id ?? '',\n        timestamp: msg.timestamp\n          ? new Date(Number(msg.timestamp) * 1000).toISOString()\n          : new Date().toISOString(),\n      },\n    });\n    continue;\n  }\n\n  // ---------- Evolution API ----------\n  const data = body?.data ?? body;\n  const m = data?.message;\n\n  if (!m) continue;                                   // status/presence event\n  if (data?.key?.fromMe) continue;                    // our own outbound reply\n\n  const jid = data?.key?.remoteJid ?? '';\n  if (jid.endsWith('@g.us')) continue;                // ignore group chats\n\n  let type = 'text';\n  if (m.imageMessage) type = 'image';\n  else if (m.audioMessage || m.pttMessage) type = 'audio';\n\n  // Evolution puts base64 in different places depending on version/settings.\n  const base64 =\n    data.message?.base64 ??\n    m.imageMessage?.base64 ??\n    m.audioMessage?.base64 ??\n    data.base64 ??\n    '';\n\n  out.push({\n    json: {\n      source: 'evolution',\n      type,\n      text:\n        m.conversation ??\n        m.extendedTextMessage?.text ??\n        m.imageMessage?.caption ??\n        '',\n      base64,\n      mediaId: '',\n      mimeType: m.imageMessage?.mimetype ?? m.audioMessage?.mimetype ?? '',\n      phone: jid.split('@')[0] ?? '',\n      pushName: data?.pushName ?? '',\n      messageId: data?.key?.id ?? '',\n      timestamp: data?.messageTimestamp\n        ? new Date(Number(data.messageTimestamp) * 1000).toISOString()\n        : new Date().toISOString(),\n    },\n  });\n}\n\nreturn out;"
+      },
+      "id": "code-normalize",
+      "name": "Normalize Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "rule-image",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "image",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "image"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "rule-audio",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "audio"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Fallback"
+        }
+      },
+      "id": "switch-type",
+      "name": "Route By Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -20,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "base64",
+        "options": {
+          "fileName": "image.jpg",
+          "mimeType": "=({{ $json.mimeType || \"image/jpeg\" }})"
+        }
+      },
+      "id": "image-to-binary",
+      "name": "Image To Binary",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "text": "Describe what this customer sent, focusing on anything that suggests a problem with an order (damage, wrong item, wilted flowers). Two sentences maximum.",
+        "inputType": "base64",
+        "options": {}
+      },
+      "id": "analyze-image",
+      "name": "Analyze Image",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        440,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-image-input",
+              "name": "messageText",
+              "value": "=[Image received] {{ $json.content || $json.text }}{{ $('Normalize Message').item.json.text ? \" | Caption: \" + $('Normalize Message').item.json.text : \"\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "set-image-input",
+      "name": "Image Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        660,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "base64",
+        "options": {
+          "fileName": "audio.ogg",
+          "mimeType": "=({{ $json.mimeType || \"audio/ogg\" }})"
+        }
+      },
+      "id": "audio-to-binary",
+      "name": "Audio To Binary",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "id": "transcribe-audio",
+      "name": "Transcribe Audio",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-audio-input",
+              "name": "messageText",
+              "value": "=[Voice note] {{ $json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "set-audio-input",
+      "name": "Audio Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-text-input",
+              "name": "messageText",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "set-text-input",
+      "name": "Text Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        660,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-unified",
+              "name": "messageText",
+              "value": "={{ $json.messageText }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "unified-message",
+      "name": "Unified Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.messageText }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are the escalation triage agent for Tulip Alerts, a flower shop's WhatsApp support line.\n\nYou receive one customer message (text, an image description, or an audio transcript). Decide whether a human agent must be alerted.\n\nEscalate when the message involves:\n- an order that is late, damaged, wrong, or missing\n- a refund, chargeback, or billing dispute\n- an explicitly angry, distressed, or threatening customer\n- a funeral, wedding, or other time-critical delivery at risk\n- a request to speak to a human or a manager\n- a legal, safety, or press-related concern\n\nDo NOT escalate routine questions such as opening hours, prices, product availability, or simple order status where nothing has gone wrong.\n\nPriority:\n- \"urgent\"  : money already lost, event today/tomorrow at risk, threats, legal or press, severe anger\n- \"high\"    : clear service failure needing same-day attention, refund request, repeat complaint\n- \"medium\"  : mild dissatisfaction or a human touch that can wait a day\n\nWrite \"reason\" as one short sentence (under 20 words) telling the support agent why this was flagged. Always answer in English even when the customer writes another language."
+        }
+      },
+      "id": "whatsapp-ai-agent",
+      "name": "WhatsApp AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "whatsapp-ai-model",
+      "name": "WhatsApp AI Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1040,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"shouldEscalate\": {\n      \"type\": \"boolean\",\n      \"description\": \"true only if a human support agent must be alerted\"\n    },\n    \"priority\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"urgent\",\n        \"high\",\n        \"medium\"\n      ],\n      \"description\": \"severity; must be exactly one of urgent, high, medium\"\n    },\n    \"reason\": {\n      \"type\": \"string\",\n      \"description\": \"one short sentence explaining why this was flagged\"\n    }\n  },\n  \"required\": [\n    \"shouldEscalate\",\n    \"priority\",\n    \"reason\"\n  ]\n}"
+      },
+      "id": "escalation-parser",
+      "name": "Escalation Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        1240,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds the Firestore REST payload.\n//\n// Firestore's REST API needs *typed* values. createdAt MUST be timestampValue\n// (not stringValue) or the Flutter app's Timestamp.toDate() returns null and\n// every card shows \"Unknown time\".\n\nconst ALLOWED_PRIORITIES = ['urgent', 'high', 'medium'];\n\n// Pulls an upstream item, falling back to the first if item pairing is lost.\nfunction upstream(nodeName, index) {\n  try {\n    return $(nodeName).itemMatching(index).json;\n  } catch (e) {\n    return $(nodeName).first().json;\n  }\n}\n\nreturn $input.all().map((item, i) => {\n  // The structured output parser returns an object; a bare model may return\n  // a JSON string. Accept either.\n  let ai = item.json.output ?? item.json;\n  if (typeof ai === 'string') {\n    try {\n      ai = JSON.parse(ai);\n    } catch (e) {\n      ai = {};\n    }\n  }\n\n  const ctx = upstream('Normalize Message', i);\n  const unified = upstream('Unified Message', i);\n\n  // Clamp to the three values the Flutter Priority enum understands, so a\n  // stray \"critical\" never renders as an Unknown grey badge.\n  const rawPriority = String(ai.priority ?? '').trim().toLowerCase();\n  const priority = ALLOWED_PRIORITIES.includes(rawPriority) ? rawPriority : 'medium';\n\n  // WhatsApp gives one display name; split it into first/last for the contract.\n  const nameParts = String(ctx.pushName ?? '').trim().split(/\\s+/).filter(Boolean);\n  const firstName = nameParts[0] ?? '';\n  const lastName = nameParts.slice(1).join(' ');\n\n  const rawPhone = String(ctx.phone ?? '').replace(/[^0-9]/g, '');\n  const phone = rawPhone ? '+' + rawPhone : '';\n\n  const message = String(unified.messageText ?? ctx.text ?? '');\n  const createdAt = ctx.timestamp || new Date().toISOString();\n\n  return {\n    json: {\n      shouldEscalate: ai.shouldEscalate === true || ai.shouldEscalate === 'true',\n      debug: { priority, firstName, lastName, phone, messageId: ctx.messageId },\n      firestore: {\n        fields: {\n          priority: { stringValue: priority },\n          reason: { stringValue: String(ai.reason ?? '').slice(0, 500) },\n          firstName: { stringValue: firstName },\n          lastName: { stringValue: lastName },\n          phone: { stringValue: phone },\n          message: { stringValue: message.slice(0, 4000) },\n          createdAt: { timestampValue: createdAt },\n        },\n      },\n    },\n  };\n});"
+      },
+      "id": "build-alert",
+      "name": "Build Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-escalate",
+              "leftValue": "={{ $json.shouldEscalate }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-escalate",
+      "name": "Needs Escalation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1620,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://firestore.googleapis.com/v1/projects/whatsapp-ai-agent-waseem/databases/(default)/documents/alerts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.firestore) }}",
+        "options": {}
+      },
+      "id": "firestore-write",
+      "name": "Create Firestore Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1840,
+        200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "no-op",
+      "name": "No Escalation",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Incoming WhatsApp Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Message": {
+      "main": [
+        [
+          {
+            "node": "Route By Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route By Type": {
+      "main": [
+        [
+          {
+            "node": "Image To Binary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Audio To Binary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image To Binary": {
+      "main": [
+        [
+          {
+            "node": "Analyze Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Image": {
+      "main": [
+        [
+          {
+            "node": "Image Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image Input": {
+      "main": [
+        [
+          {
+            "node": "Unified Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audio To Binary": {
+      "main": [
+        [
+          {
+            "node": "Transcribe Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe Audio": {
+      "main": [
+        [
+          {
+            "node": "Audio Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audio Input": {
+      "main": [
+        [
+          {
+            "node": "Unified Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Input": {
+      "main": [
+        [
+          {
+            "node": "Unified Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unified Message": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp AI Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "WhatsApp AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalation Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "WhatsApp AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Build Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Alert": {
+      "main": [
+        [
+          {
+            "node": "Needs Escalation?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Escalation?": {
+      "main": [
+        [
+          {
+            "node": "Create Firestore Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Escalation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

@@ -1,0 +1,68 @@
+rules_version = '2';
+
+// WhatsApp Insights — Firestore security rules.
+//
+// The app is read-mostly. The only write it performs is flipping an alert's
+// `status` (plus the `completion_date` stamp that goes with it). Alert
+// documents themselves are created by n8n with a service account, which
+// bypasses these rules entirely — so client create/delete stay closed.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -----------------------------------------------------------------
+    // Sign-in allowlist. Read must be public: the gatekeeper check runs
+    // BEFORE the magic link is sent, i.e. while the user is still
+    // unauthenticated. Only the email is exposed, and only to someone who
+    // already knows the address they are typing in.
+    //
+    // Writes are admin-only. `admins/{uid}` is maintained from the Firebase
+    // console (or a service account); no client can grant itself entry.
+    // -----------------------------------------------------------------
+    match /allowed_users/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Admin registry — readable only by admins, never client-writable.
+    match /admins/{uid} {
+      allow read: if request.auth != null
+                  && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      allow write: if false;
+    }
+
+    match /alerts/{alertId} {
+      // ---------------------------------------------------------------
+      // DEV MODE (active): anyone holding the web API key can read.
+      // Once magic-link sign-in is live end-to-end, tighten this to:
+      //     allow read: if request.auth != null;
+      // ---------------------------------------------------------------
+      allow read: if true;
+
+      // The only permitted write: a status transition, optionally carrying
+      // the completion_date stamp. Nothing else in the document may change
+      // in the same request.
+      allow update: if
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'completion_date']) &&
+        request.resource.data.status in ['new', 'done', 'ignored'] &&
+        // done  -> completion_date must be a timestamp
+        // other -> completion_date must be absent or null (revert clears it)
+        (
+          (request.resource.data.status == 'done'
+            && request.resource.data.completion_date is timestamp)
+          ||
+          (request.resource.data.status != 'done'
+            && (!('completion_date' in request.resource.data)
+                || request.resource.data.completion_date == null))
+        );
+
+      allow create, delete: if false;
+    }
+
+    // Anything else stays closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

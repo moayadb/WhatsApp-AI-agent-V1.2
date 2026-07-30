@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(flutter --version)",
+      "Bash(break)",
+      "WebFetch(domain:wacrm.tech)",
+      "mcp__claude-in-chrome__computer"
+    ]
+  }
+}

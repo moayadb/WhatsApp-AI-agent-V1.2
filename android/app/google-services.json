@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "73419662405",
+    "project_id": "whatsapp-ai-agent-waseem",
+    "storage_bucket": "whatsapp-ai-agent-waseem.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:73419662405:android:91dc056dc3280258392f2c",
+        "android_client_info": {
+          "package_name": "com.sanayed.analyzer"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "73419662405-iut9df7qu0062l49fcacgks1bhm1tvuf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCXEkFSdB6CYXuBxwQaYbuQrqjCJ2w-l60"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "73419662405-iut9df7qu0062l49fcacgks1bhm1tvuf.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
