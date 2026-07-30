@@ -24,6 +24,21 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- OAuth callback scheme for Google sign-in. This is the
+	     REVERSED_CLIENT_ID from GoogleService-Info.plist; without it, the
+	     browser hands control back to iOS and nothing catches the redirect,
+	     so sign-in silently never completes. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.73419662405-ddn58887ad2uuduph58seamteorta7vc</string>
+			</array>
+		</dict>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

@@ -66,11 +66,11 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyAUbH4sPnF1XLxu4Lov05NGKEbJNZC4tp4',
-    appId: '1:73419662405:ios:e36992809b09e1c7392f2c',
+    appId: '1:73419662405:ios:170ab7b5bf8e9ef6392f2c',
     messagingSenderId: '73419662405',
     projectId: 'whatsapp-ai-agent-waseem',
     storageBucket: 'whatsapp-ai-agent-waseem.firebasestorage.app',
-    iosClientId: '73419662405-91kubt03skfvg87j33oes7r1qhqcjude.apps.googleusercontent.com',
-    iosBundleId: 'com.sanayed.analyzer',
+    iosClientId: '73419662405-ddn58887ad2uuduph58seamteorta7vc.apps.googleusercontent.com',
+    iosBundleId: 'com.sanayed.tulipAlerts',
   );
 }
