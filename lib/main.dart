@@ -15,6 +15,7 @@ import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'services/alerts_service.dart';
 import 'services/auth_service.dart';
+import 'services/push_service.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -41,7 +42,12 @@ class WhatsAppInsightsApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => SettingsProvider(prefs)),
         ChangeNotifierProvider(
-          create: (_) => AuthProvider(FirebaseAuthService())..restore(),
+          // Push registration rides on the session lifecycle — a token is only
+          // useful while somebody is signed in, and must be dropped on the way
+          // out. See PushService: the app only ever receives; the send is
+          // server-side from whatever writes the alert document.
+          create: (_) =>
+              AuthProvider(FirebaseAuthService(), PushService())..restore(),
         ),
         // Two Firestore subscriptions, both above the navigation shell and
         // both started once when it mounts — never per-screen.

@@ -24,6 +24,26 @@ service cloud.firestore {
                    && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    // -----------------------------------------------------------------
+    // Push tokens, one document per device install.
+    //
+    // Clients may only write a row stamped with their OWN address, so a
+    // signed-in user cannot point somebody else's device record at a token
+    // they control. No client may read the collection at all — the whole
+    // point of it is the token list, and that is for the server only.
+    //
+    // The sender (n8n / a Cloud Function) uses a service account, which
+    // bypasses these rules entirely, so `allow read: if false` costs it
+    // nothing.
+    // -----------------------------------------------------------------
+    match /device_tokens/{deviceId} {
+      allow read: if false;
+      allow create, update: if request.auth != null
+                   && request.resource.data.email == request.auth.token.email;
+      allow delete: if request.auth != null
+                    && resource.data.email == request.auth.token.email;
+    }
+
     // Admin registry — readable only by admins, never client-writable.
     match /admins/{uid} {
       allow read: if request.auth != null

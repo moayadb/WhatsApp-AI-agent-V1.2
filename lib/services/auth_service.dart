@@ -191,6 +191,7 @@ class FirebaseAuthService implements AuthService {
     final username = email.split('@').first;
     return AppUser(
       username: username,
+      email: email,
       displayName: _displayNameFor(user, username),
       role: await roleFor(email),
     );

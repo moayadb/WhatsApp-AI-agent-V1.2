@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Release builds only — this is what Codemagic archives and what goes to
+	     TestFlight and the App Store. Those are signed with a distribution
+	     profile, which pairs with the APNs production servers.
+	     Getting this wrong is the classic "push works in Xcode, silently never
+	     arrives on TestFlight" bug: the token registers against the wrong APNs
+	     environment and Apple drops every send without an error. -->
+	<key>aps-environment</key>
+	<string>production</string>
+</dict>
+</plist>

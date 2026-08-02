@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Debug and Profile builds. These are signed with a development
+	     provisioning profile, which only pairs with the APNs sandbox, so the
+	     value here MUST be "development". A production value on a
+	     development-signed build fails to register for remote notifications.
+	     Release builds use RunnerRelease.entitlements instead. -->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>

@@ -17,15 +17,24 @@ enum UserRole {
       };
 }
 
-/// A demo user. Deliberately trivial per spec §4 — no Firebase Auth.
+/// The signed-in user, projected from a Firebase Auth account plus its
+/// `allowed_users` row. Framework-free on purpose so it stays unit-testable.
 class AppUser {
   const AppUser({
     required this.username,
+    required this.email,
     required this.displayName,
     required this.role,
   });
 
+  /// What the user types at sign-in — the local part only, no domain.
   final String username;
+
+  /// The Firebase Auth address, `<username>@sanayed.app`. Used to match the
+  /// `allowed_users` row and to stamp the device's push token; **never shown
+  /// in the UI**, because staff are not meant to know the domain exists.
+  final String email;
+
   final String displayName;
   final UserRole role;
 }

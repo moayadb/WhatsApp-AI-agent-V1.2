@@ -69,6 +69,13 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Lets iOS hand a push to the app while it is backgrounded or terminated,
+	     so FirebaseMessaging's background handler can run. Without this key the
+	     banner still shows, but the app is never woken to process the payload. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
