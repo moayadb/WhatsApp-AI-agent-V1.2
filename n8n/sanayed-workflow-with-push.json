@@ -1,0 +1,686 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "8daf7db6-ea4b-4afb-818b-7600e56cce82",
+        "options": {}
+      },
+      "id": "50ef57dd-395f-4b95-b332-5bce089c9236",
+      "name": "Incoming WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1168,
+        96
+      ],
+      "webhookId": "8daf7db6-ea4b-4afb-818b-7600e56cce82"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize the incoming webhook into one flat shape.\n// Verified against the real production payload:\n//   body.contact.{name,phone}\n//   body.message.{type,text,media}\n//   body.{event,direction,source,account_id,conversation_id,wa_message_id,timestamp}\n// Flat variants (\"FirstName\", \"Message Content\", ...) are also accepted, in case the\n// sending system is later changed to post them.\n//\n// NOT PRESENT in the payload and therefore always empty here:\n//   ContactID, LastName, Status, Assignee, the business WhatsApp number.\n// Those must be added by the system that calls this webhook, or fetched from its\n// API using conversation_id. Country is derived from the phone prefix instead.\n\nconst DIAL_TO_ISO = {\n  '971': 'AE', '966': 'SA', '963': 'SY', '965': 'KW', '974': 'QA', '973': 'BH',\n  '968': 'OM', '962': 'JO', '961': 'LB', '964': 'IQ', '967': 'YE', '970': 'PS',\n  '20': 'EG', '212': 'MA', '213': 'DZ', '216': 'TN', '218': 'LY', '249': 'SD',\n  '90': 'TR', '98': 'IR', '93': 'AF', '92': 'PK', '91': 'IN', '880': 'BD',\n  '94': 'LK', '977': 'NP', '1': 'US', '44': 'GB', '33': 'FR', '49': 'DE',\n  '34': 'ES', '39': 'IT', '31': 'NL', '32': 'BE', '41': 'CH', '43': 'AT',\n  '46': 'SE', '47': 'NO', '45': 'DK', '358': 'FI', '351': 'PT', '30': 'GR',\n  '48': 'PL', '40': 'RO', '380': 'UA', '7': 'RU', '86': 'CN', '81': 'JP',\n  '82': 'KR', '84': 'VN', '66': 'TH', '65': 'SG', '60': 'MY', '62': 'ID',\n  '63': 'PH', '61': 'AU', '64': 'NZ', '27': 'ZA', '234': 'NG', '254': 'KE',\n  '251': 'ET', '252': 'SO', '55': 'BR', '52': 'MX', '54': 'AR', '56': 'CL',\n  '57': 'CO', '58': 'VE', '51': 'PE', '995': 'GE', '994': 'AZ', '996': 'KG',\n  '998': 'UZ'\n};\n\n// Longest prefix first, so '971' wins over '97'/'9'.\nconst DIAL_CODES = Object.keys(DIAL_TO_ISO).sort((a, b) => b.length - a.length);\n\nconst countryFromPhone = (phone) => {\n  const digits = String(phone || '').replace(/[^0-9]/g, '');\n  if (!digits) return '';\n  for (const code of DIAL_CODES) {\n    if (digits.startsWith(code)) return DIAL_TO_ISO[code];\n  }\n  return '';\n};\n\nconst out = [];\n\nfor (const item of $input.all()) {\n  const b = item.json.body ?? item.json ?? {};\n\n  const get = (path) =>\n    path.split('.').reduce((o, k) => (o === null || o === undefined ? undefined : o[k]), b);\n\n  const pick = (...paths) => {\n    for (const p of paths) {\n      const v = get(p);\n      if (v !== undefined && v !== null && v !== '') return v;\n    }\n    return '';\n  };\n\n  const str = (v) => (v === undefined || v === null ? '' : String(v));\n\n  // --- name: payload sends one combined string, so split only as a fallback ---\n  const fullNameRaw = str(pick('contact.name', 'name', 'sender.name', 'FullName'));\n  let firstName = str(pick('FirstName', 'first_name', 'contact.first_name'));\n  let lastName = str(pick('LastName', 'last_name', 'contact.last_name'));\n  if (!firstName && fullNameRaw) {\n    const parts = fullNameRaw.trim().split(/\\s+/);\n    firstName = parts.shift() || '';\n    if (!lastName) lastName = parts.join(' ');\n  }\n  const senderName = (fullNameRaw || firstName + ' ' + lastName).trim();\n\n  const senderPhone = str(pick(\n    'PhoneNumber', 'phone', 'phone_number', 'contact.phone', 'contact.phone_number'\n  ));\n\n  // --- timestamp: Firestore timestampValue needs RFC3339; force UTC Z ---\n  const rawDate = pick('Date & Current Time', 'DateTime', 'timestamp', 'created_at', 'message.created_at');\n  let messageAtUtc = '';\n  if (rawDate !== '') {\n    const ms = typeof rawDate === 'number' && rawDate < 1e12 ? rawDate * 1000 : rawDate;\n    const d = new Date(ms);\n    if (!isNaN(d.getTime())) messageAtUtc = d.toISOString();\n  }\n\n  // No contact id in the payload -- the phone is the only stable per-person key.\n  const contactId = str(pick('ContactID', 'contact_id', 'contact.id', 'id')) || senderPhone;\n\n  out.push({\n    json: {\n      contactId,\n      conversationId: str(pick('conversation_id', 'ConversationID', 'conversation.id')),\n      accountId: str(pick('account_id', 'AccountID')),\n      waMessageId: str(pick('wa_message_id', 'message.id', 'MessageID')),\n\n      firstName,\n      lastName,\n      senderName,\n      senderPhone,\n      // Guaranteed non-empty, so the app always has something to render.\n      displayName: senderName || senderPhone || 'Unknown',\n      country: str(pick('Country', 'country', 'contact.country_code', 'contact.country'))\n        || countryFromPhone(senderPhone),\n\n      // Absent from this payload -- kept so the shape is stable once it is added.\n      conversationStatus: str(pick('Status', 'status', 'conversation.status')),\n      assignee: str(pick('Assignee', 'assignee', 'assignee.name', 'conversation.assignee.name')),\n\n      channel: str(pick('Channels', 'Channel', 'channel', 'inbox.name', 'source')),\n      source: str(pick('source', 'Source')),\n      event: str(pick('event', 'Event')),\n\n      messageText: str(pick('Message Content', 'message.text', 'message.content', 'text', 'content')),\n      messageType: str(pick('message.type', 'MessageType', 'Type', 'type') || 'text').toLowerCase(),\n      direction: str(pick('Incoming/Outgoing', 'direction', 'message_type')).toLowerCase(),\n\n      messageAtUtc,\n      messageAtRaw: str(rawDate),\n\n      mediaBase64: str(pick('message.media.data', 'media.data', 'MediaData', 'attachment.data')),\n      mediaMimeType: str(pick('message.media.mime_type', 'media.mime_type', 'MediaMimeType')),\n\n      body: b\n    }\n  });\n}\n\nreturn out;"
+      },
+      "id": "eabdf39f-486f-481a-8417-c76684c26d94",
+      "name": "Normalize Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c_image",
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "image",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "image"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c_audio",
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "audio"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "bd6b4c17-760c-4b44-bce2-6c668edb8888",
+      "name": "Route By Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -736,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "mediaBase64",
+        "options": {}
+      },
+      "id": "24e30600-6591-4618-a6b2-66d1b21792c4",
+      "name": "Image To Binary",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        -512,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "text": "Describe this image in detail for a downstream assistant. Include any visible text.",
+        "inputType": "base64",
+        "options": {}
+      },
+      "id": "c60fc994-861c-4962-a0ea-a5b82b2a8020",
+      "name": "Analyze Image",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -288,
+        -96
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "RkmZb4Wltk8qiXDO",
+          "name": "Waseem & Mouayad"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "i1",
+              "name": "input",
+              "value": "={{ $json.content || $json.text || $('Normalize Payload').first().json.messageText || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "i2",
+              "name": "messageType",
+              "value": "={{ $('Normalize Payload').first().json.messageType }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f5680c1d-399f-407d-b0b4-52e457a524f7",
+      "name": "Image Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -64,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "mediaBase64",
+        "options": {
+          "fileName": "audio.ogg",
+          "mimeType": "audio/ogg"
+        }
+      },
+      "id": "bcc52aae-39be-4255-a327-9abd28b5ee58",
+      "name": "Audio To Binary",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        -512,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "id": "516799a7-fdf6-4220-a33e-4dd9c189a62f",
+      "name": "Transcribe Audio",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -288,
+        96
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "RkmZb4Wltk8qiXDO",
+          "name": "Waseem & Mouayad"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "i1",
+              "name": "input",
+              "value": "={{ $json.text || $json.content || $('Normalize Payload').first().json.messageText || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "i2",
+              "name": "messageType",
+              "value": "={{ $('Normalize Payload').first().json.messageType }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d86c2d26-1252-4e11-b0f0-fee058f2c4ac",
+      "name": "Audio Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -64,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "i1",
+              "name": "input",
+              "value": "={{ $json.messageText }}",
+              "type": "string"
+            },
+            {
+              "id": "i2",
+              "name": "messageType",
+              "value": "={{ $json.messageType }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1c4e7eda-0628-4fe3-8b9a-2b60453dd0dd",
+      "name": "Text Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -64,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        160,
+        320
+      ],
+      "id": "48d228ff-9a4e-44d8-a535-799939e1c117",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "RkmZb4Wltk8qiXDO",
+          "name": "Waseem & Mouayad"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"needs_attention\": true,\n  \"priority\": \"medium\",\n  \"department\": \"support\",\n  \"category\": \"customer_dissatisfaction\",\n  \"summary\": \"العميل غير راضٍ عن لوحة التحكم ولا يجد الاسم أو الرقم.\",\n  \"reason\": \"العميل أبدى استياءً واضحاً وقد يتفاقم إذا لم تتم المعالجة.\",\n  \"action\": \"مراجعة لوحة التحكم والتواصل مع العميل لحل المشكلة.\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        304,
+        320
+      ],
+      "id": "29f6231d-1f0a-4626-a257-8a768d92d5cb",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an AI Manager Alert Filter for Tulip Flowers.\n\nThe input may come from:\n- Text messages\n- Audio transcriptions\n- AI-generated image descriptions\n\nMessage Type:\n{{ $json.messageType }}\n\nContent:\n{{ $json.input }}\n\nSet needs_attention = true only if the content indicates a serious business risk, including:\n\n- customer complaint\n- negative sentiment or dissatisfaction\n- refund or replacement request\n- wrong, damaged, missing, or poor-quality order\n- delivery problem\n- payment issue\n- legal threat, bad review, or complaint to authorities\n- VIP or urgent corporate issue\n- same-day delivery problem that risks losing the customer\n\nOtherwise return needs_attention = false.\n\nBase your decision on the meaning of the content, not exact keywords.\n\nOUTPUT RULES -- follow exactly. The mobile app matches these values against a\nfixed list, so any value outside the lists below is shown to managers as \"Other\".\n\npriority: exactly one of\n  urgent   (legal threat, authority complaint, public review threat, paid order not delivered)\n  high     (refund, payment issue, wrong order, delivery failure)\n  medium   (dissatisfaction or complaint that may escalate)\n  low      (normal conversation)\n\ndepartment: exactly one of\n  sales | operations | delivery | finance | support | management\n\ncategory: exactly one of\n  customer_complaint | customer_dissatisfaction | refund_request |\n  delivery_problem | payment_issue | wrong_or_damaged_order |\n  quality_issue | legal_threat | vip_issue | general_inquiry\n\nAll three must be lowercase with underscores. Never invent a value outside these lists,\nnever use spaces, and never use Title Case.\n\nsummary, reason and action: one short sentence each, written in ARABIC.\n\nReturn only the required structured JSON.",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        160,
+        96
+      ],
+      "id": "044347f3-fc50-4031-9cb0-a6836a9570f2",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// The AI Agent node only ever outputs { output: {...} } -- it structurally cannot\n// carry the webhook data through. Re-join the classification with the normalized\n// contact/message context here, and build the Firestore document in real JS so\n// quotes, newlines, emoji and Arabic cannot corrupt the request body.\n\nconst items = $input.all();\nconst result = [];\n\nconst str = (v) => (v === undefined || v === null ? '' : String(v));\n\n// Importing this workflow next to the old one makes n8n suffix node names with\n// \"1\", so probe both spellings instead of hard-failing on a rename.\nconst nodeJson = (names, i) => {\n  for (const name of names) {\n    try {\n      const all = $(name).all();\n      const it = all[i] ?? all[0];\n      if (it) return it.json;\n    } catch (e) {\n      // node absent on this canvas, or its branch did not execute this run\n    }\n  }\n  return {};\n};\n\n// The app matches these against a fixed list, so coerce to lower_snake_case.\nconst snake = (v) =>\n  String(v || '')\n    .trim()\n    .toLowerCase()\n    .replace(/[^a-z0-9]+/g, '_')\n    .replace(/^_+|_+$/g, '');\n\nconst PRIORITIES = ['urgent', 'high', 'medium', 'low'];\n\nfor (let i = 0; i < items.length; i++) {\n  const agent = items[i].json.output ?? items[i].json ?? {};\n  const n = nodeJson(['Normalize Payload', 'Normalize Payload1'], i);\n  const branch = nodeJson([\n    'Text Input', 'Text Input1',\n    'Image Input', 'Image Input1',\n    'Audio Input', 'Audio Input1'\n  ], i);\n\n  const nowIso = new Date().toISOString();\n  const needsAttention = agent.needs_attention === true;\n\n  let priority = snake(agent.priority);\n  if (!PRIORITIES.includes(priority)) priority = needsAttention ? 'medium' : 'low';\n\n  // --- what the app should render in the message bubble ---\n  // Text: the customer's own words.\n  // Image / audio: the AI description or transcription, because there are no words\n  // to show. display_source tells the app which badge to put above the bubble, so\n  // an analysis is never mistaken for something the customer actually wrote.\n  const messageType = str(n.messageType) || 'text';\n  const isMedia = messageType === 'image' || messageType === 'audio';\n  const mediaAnalysis = isMedia ? str(branch.input) : '';\n  const displayText = isMedia ? mediaAnalysis || str(n.messageText) : str(n.messageText);\n  const displaySource = !isMedia\n    ? 'customer_message'\n    : messageType === 'audio' ? 'audio_transcript' : 'image_description';\n\n  result.push({\n    json: {\n      fields: {\n        // --- AI Agent classification ---\n        needs_attention: { booleanValue: needsAttention },\n        priority: { stringValue: priority },\n        department: { stringValue: snake(agent.department) },\n        category: { stringValue: snake(agent.category) },\n        summary: { stringValue: str(agent.summary) },\n        reason: { stringValue: str(agent.reason) },\n        action: { stringValue: str(agent.action) },\n\n        // --- Contact ---\n        contact_id: { stringValue: str(n.contactId) },\n        first_name: { stringValue: str(n.firstName) },\n        last_name: { stringValue: str(n.lastName) },\n        sender_name: { stringValue: str(n.senderName) },\n        display_name: { stringValue: str(n.displayName) },\n        sender_phone: { stringValue: str(n.senderPhone) },\n        country: { stringValue: str(n.country) },\n\n        // --- Conversation ---\n        conversation_id: { stringValue: str(n.conversationId) },\n        account_id: { stringValue: str(n.accountId) },\n        wa_message_id: { stringValue: str(n.waMessageId) },\n        channel: { stringValue: str(n.channel) },\n        source: { stringValue: str(n.source) },\n        // Empty until the sending system includes these in the webhook.\n        conversation_status: { stringValue: str(n.conversationStatus) },\n        assignee: { stringValue: str(n.assignee) },\n\n        // --- Message ---\n        // ALWAYS the customer's own words: the text body, or a media caption.\n        // Empty when media is sent with no caption.\n        message_content: { stringValue: str(n.messageText) },\n        message_type: { stringValue: messageType },\n        direction: { stringValue: str(n.direction) },\n        // AI transcription (audio) or description (image). Empty for text messages.\n        media_analysis: { stringValue: mediaAnalysis },\n        // Ready to render: the bubble text, plus what kind of content it is.\n        display_text: { stringValue: displayText },\n        display_source: { stringValue: displaySource },\n\n        // --- Timestamps (RFC3339 UTC) ---\n        message_at: { timestampValue: n.messageAtUtc || nowIso },\n        created_at: { timestampValue: nowIso },\n\n        // --- Alert lifecycle. Name kept as \"status\" so the existing app keeps working.\n        status: { stringValue: 'new' }\n      }\n    }\n  });\n}\n\nreturn result;"
+      },
+      "id": "a58c88d4-aed4-4432-b7f6-9556aac704f5",
+      "name": "Build Firestore Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://firestore.googleapis.com/v1/projects/whatsapp-ai-agent-waseem/databases/(default)/documents/alerts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleFirebaseCloudFirestoreOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ fields: $json.fields }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        736,
+        96
+      ],
+      "id": "a915db60-c5e5-4161-a4c0-34fdab8f9497",
+      "name": "HTTP Request1",
+      "credentials": {
+        "googleFirebaseCloudFirestoreOAuth2Api": {
+          "id": "NI3FJbcgJV8WJGFq",
+          "name": "Google Firebase Cloud Firestore account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "needs-attention",
+              "leftValue": "={{ $json.fields.needs_attention.booleanValue }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "b1000001-0000-4000-8000-000000000001",
+      "name": "Needs attention?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        96
+      ],
+      "notes": "Reads the Firestore CREATE RESPONSE, so the shape is REST -- fields.needs_attention.booleanValue, not $json.needs_attention. Routine traffic must never fire a phone."
+    },
+    {
+      "parameters": {
+        "url": "https://firestore.googleapis.com/v1/projects/whatsapp-ai-agent-waseem/databases/(default)/documents/device_tokens",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleFirebaseCloudFirestoreOAuth2Api",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1168,
+        96
+      ],
+      "id": "b1000002-0000-4000-8000-000000000002",
+      "name": "Get Device Tokens",
+      "credentials": {
+        "googleFirebaseCloudFirestoreOAuth2Api": {
+          "id": "NI3FJbcgJV8WJGFq",
+          "name": "Google Firebase Cloud Firestore account 2"
+        }
+      },
+      "notes": "Same Firestore credential as the alerts write -- the datastore scope covers this read. Returns { documents: [...] }, and omits the key entirely when no device has registered yet."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Builds one FCM v1 request body per registered device.\n//\n// Reads the Firestore CREATE RESPONSE from 'HTTP Request1' rather than the\n// pre-write body, for two reasons: only alerts that actually persisted should\n// notify anyone, and the response carries the generated document id, so\n// alert_id is real and a future app version can deep-link to it.\n\nconst AR_PRIORITY = {\n  urgent: 'عاجلة',\n  high: 'عالية',\n  medium: 'متوسطة',\n  low: 'منخفضة',\n};\nconst AR_DEPARTMENT = {\n  sales: 'المبيعات',\n  operations: 'العمليات',\n  delivery: 'التوصيل',\n  finance: 'المالية',\n  support: 'الدعم',\n  management: 'الإدارة',\n};\n\nconst created = $('HTTP Request1').first().json ?? {};\nconst f = created.fields ?? {};\n\nconst priority = String(f.priority?.stringValue ?? '').toLowerCase();\nconst department = String(f.department?.stringValue ?? '').toLowerCase();\n// name is \"projects/.../documents/alerts/<docId>\".\nconst alertId = String(created.name ?? '').split('/').pop() ?? '';\n\n// Priority and department ONLY. Never the customer's message text -- a\n// notification body renders on a locked screen in full view of the room, and\n// these are complaints and refund demands.\nconst title = 'تنبيه جديد';\nconst body = [AR_PRIORITY[priority] || 'تنبيه', AR_DEPARTMENT[department]]\n  .filter(Boolean)\n  .join(' · ');\n\n// Firestore REST returns { documents: [...] } and omits the key when empty.\nconst docs = $input.first().json?.documents ?? [];\n\nreturn docs\n  .map((d) => d.fields?.token?.stringValue)\n  .filter(Boolean)\n  .map((token) => ({\n    json: {\n      token,\n      payload: {\n        message: {\n          token,\n          notification: { title, body },\n          apns: { payload: { aps: { sound: 'default' } } },\n          data: { alert_id: alertId, priority },\n        },\n      },\n    },\n  }));"
+      },
+      "id": "b1000003-0000-4000-8000-000000000003",
+      "name": "Build FCM Payloads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        96
+      ],
+      "notes": "Emits one item per device. Returns zero items when nobody has registered, which simply ends the branch."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://fcm.googleapis.com/v1/projects/whatsapp-ai-agent-waseem/messages:send",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "b1000004-0000-4000-8000-000000000004",
+      "name": "Send to FCM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1584,
+        96
+      ],
+      "notes": "NEEDS A CREDENTIAL: Google Service Account API with scope https://www.googleapis.com/auth/firebase.messaging. The Firestore OAuth2 credential carries the datastore scope only and will 403 here. neverError is deliberate -- FCM v1 takes one token per request, so without it one dead token aborts the run and everyone behind it gets nothing."
+    }
+  ],
+  "connections": {
+    "Incoming WhatsApp Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Payload": {
+      "main": [
+        [
+          {
+            "node": "Route By Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route By Type": {
+      "main": [
+        [
+          {
+            "node": "Image To Binary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Audio To Binary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image To Binary": {
+      "main": [
+        [
+          {
+            "node": "Analyze Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Image": {
+      "main": [
+        [
+          {
+            "node": "Image Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image Input": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audio To Binary": {
+      "main": [
+        [
+          {
+            "node": "Transcribe Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe Audio": {
+      "main": [
+        [
+          {
+            "node": "Audio Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audio Input": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Input": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Build Firestore Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Firestore Body": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Needs attention?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs attention?": {
+      "main": [
+        [
+          {
+            "node": "Get Device Tokens",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Get Device Tokens": {
+      "main": [
+        [
+          {
+            "node": "Build FCM Payloads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build FCM Payloads": {
+      "main": [
+        [
+          {
+            "node": "Send to FCM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bf1ea5dcad08d286e92ea64c5576520fb0370bbd8b4d3a41017acc947d21179f"
+  }
+}

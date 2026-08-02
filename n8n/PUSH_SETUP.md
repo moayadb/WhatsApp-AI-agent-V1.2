@@ -1,129 +1,136 @@
 # Push notifications — the n8n send side
 
 > The app **receives** pushes (`lib/services/push_service.dart`). Nothing in the
-> app sends one. This document is the missing half: three nodes bolted onto the
-> end of the existing alert workflow.
+> app sends one. This is the missing half: four nodes on the end of the existing
+> alert workflow.
 >
-> n8n never talks to the app. It tells FCM, FCM tells APNs, APNs wakes the
+> n8n never talks to the app. n8n tells FCM, FCM tells APNs, APNs wakes the
 > phone. The app's only job is to have registered a token.
 
+**Import `sanayed-workflow-with-push.json`** — it is the complete production
+workflow with the push branch already wired in. `push-nodes.json` is the older
+standalone snippet, kept only for reference; prefer the full file.
+
+**Duplicate your current workflow before importing**, so a bad import is one
+click to undo.
+
 ```
-WhatsApp ─► n8n ─┬─► write Firestore alert doc      (already exists)
-                 │
-                 └─► IF needs_attention ─► read device_tokens ─► build ─► POST FCM
-                                                                            │
-                                                          APNs ─► phone ◄───┘
+… → AI Agent → Build Firestore Body → HTTP Request1 (write alert)
+                                          │
+                                          ▼
+                                   Needs attention?
+                                          │ true
+                                          ▼
+                                  Get Device Tokens
+                                          │
+                                          ▼
+                                  Build FCM Payloads   (one item per device)
+                                          │
+                                          ▼
+                                     Send to FCM ──► APNs ──► phone
 ```
 
 ---
 
-## 1. Credential — reuse the one you already have
+## 1. The one credential you must create
 
-n8n already writes alert documents to Firestore with a **Google Service Account**
-credential. Use that same credential; do not create a second one.
+**`Send to FCM` has no credential attached. Everything else is already wired.**
 
-It needs the `https://www.googleapis.com/auth/firebase.messaging` scope. The
-default `firebase-adminsdk-…` service account has it. If the POST comes back
-**403 `PERMISSION_DENIED`**, that scope is missing — see Troubleshooting.
+Your Firestore credential (`Google Firebase Cloud Firestore account 2`) is an
+**OAuth2** credential carrying the `datastore` scope. It writes alerts and reads
+`device_tokens` fine — but FCM will reject it with **403 `PERMISSION_DENIED`**,
+because sending requires a different scope.
 
-**Project ID:** `whatsapp-ai-agent-waseem`
+Create a **Google Service Account** credential in n8n:
+
+1. Google Cloud Console → IAM & Admin → Service Accounts, on project
+   `whatsapp-ai-agent-waseem`. The existing `firebase-adminsdk-…` account is
+   fine — it already has the Firebase Admin SDK role, which covers FCM.
+2. Keys → Add Key → Create new key → **JSON** → download.
+3. In n8n: Credentials → New → **Google Service Account API**.
+   - **Service Account Email** ← `client_email` from the JSON
+   - **Private Key** ← `private_key` from the JSON, including the
+     `-----BEGIN PRIVATE KEY-----` and `-----END-----` lines
+   - Enable **Set up for use in HTTP Request node**
+   - **Scope**: `https://www.googleapis.com/auth/firebase.messaging`
+4. Open the `Send to FCM` node and select that credential.
+
+That JSON key is a credential — keep it in n8n and your password manager, and
+nowhere else. Delete the downloaded file afterwards.
 
 ---
 
-## 2. The three nodes
+## 2. Why the branch hangs off `HTTP Request1`
 
-Add these after whatever node writes the alert document. `push-nodes.json` in
-this folder can be pasted straight onto the n8n canvas (select all → Ctrl+V).
+It reads the Firestore **create response**, not the pre-write body. Two reasons:
 
-### Node 1 — IF: "Needs attention?"
+- Only alerts that actually persisted notify anyone. A failed write sends nothing.
+- The response carries the generated document id, so `alert_id` in the payload
+  is real and a future app version can deep-link straight to the alert.
 
-Only flagged messages notify. Roughly half of all analysed traffic is routine
-and must not fire a phone.
-
-| Field | Value |
-|---|---|
-| Condition | Boolean → is true |
-| Value 1 | `{{ $json.needs_attention }}` |
-
-### Node 2 — Google Cloud Firestore: "Get device tokens"
-
-| Field | Value |
-|---|---|
-| Operation | Get All Documents |
-| Project ID | `whatsapp-ai-agent-waseem` |
-| Collection | `device_tokens` |
-| Return All | on |
-
-Reads every registered device. The service account bypasses security rules, so
-the `allow read: if false` on that collection does not affect it.
-
-### Node 3 — Code: "Build FCM payloads"
-
-Emits **one item per device**. Maps the wire enums to Arabic here rather than in
-the HTTP node, so the labels stay readable and in one place.
-
-Set **Mode: Run Once for All Items**. Change `'Write Alert'` on the marked line
-to the actual name of your Firestore-write node.
-
-### Node 4 — HTTP Request: "Send to FCM"
-
-| Field | Value |
-|---|---|
-| Method | `POST` |
-| URL | `https://fcm.googleapis.com/v1/projects/whatsapp-ai-agent-waseem/messages:send` |
-| Authentication | Predefined Credential Type → Google Service Account API |
-| Send Body | on · JSON · Using JSON |
-| JSON | `{{ JSON.stringify($json.payload) }}` |
-| Options → Response → Never Error | **on** |
-
-**Never Error matters.** FCM v1 sends to one token per request, so this node runs
-once per device. Without it, one dead token aborts the whole run and the
-managers behind it never get notified.
+This is also why `Needs attention?` tests
+`{{ $json.fields.needs_attention.booleanValue }}` and not `$json.needs_attention`
+— everything downstream of `Build Firestore Body` is in Firestore REST shape.
 
 ---
 
 ## 3. What the notification says
 
-Priority and department only:
-
 > **تنبيه جديد**
 > عاجلة · المبيعات
 
-**Customer message text is deliberately not in the payload.** A notification body
-renders on a locked screen in full view of anyone nearby, and these are customer
-complaints. `alert_id` rides along in `data` so a future version can deep-link
-into the alert.
+Priority and department, mapped to Arabic in `Build FCM Payloads`. Routine
+traffic never fires a phone — `Needs attention?` drops everything with
+`needs_attention: false`, which is roughly half of all analysed messages.
+
+**Customer message text is deliberately absent.** A notification body renders on
+a locked screen in front of whoever is in the room, and these are complaints and
+refund demands.
 
 ---
 
-## 4. Before any of this delivers
+## 4. Two deliberate settings
 
-1. **APNs auth key uploaded** to Firebase Console → Project settings → Cloud
-   Messaging → `tulip_alerts (ios)`. Without it every send returns success and
-   nothing arrives.
-2. **`feature/push-notifications` merged and shipped** to TestFlight. Devices
-   running the older build have no token and appear nowhere in `device_tokens`.
-3. **Someone signed in on the new build** and tapped *Allow* on the iOS prompt.
-   Check `device_tokens` has at least one document before debugging anything
-   else — an empty collection means Node 2 returns nothing and Node 4 never runs.
+**`Send to FCM` → Options → Response → Never Error is ON.** FCM v1 accepts one
+token per request, so that node runs once per device. Without this, a single
+dead token aborts the run and every manager behind it silently gets nothing.
+
+**`Build FCM Payloads` returns zero items when nobody has registered.** The
+branch just ends. No error, no empty request.
 
 ---
 
-## 5. Troubleshooting
+## 5. Nothing arrives until all four are true
+
+1. **APNs auth key uploaded** — Firebase Console → Project settings → Cloud
+   Messaging → `tulip_alerts (ios)`. Upload to **both** the development and
+   production rows. Without it FCM returns success and nothing is delivered.
+2. **`feature/push-notifications` merged and shipped to TestFlight.** Devices on
+   the current build have no token and appear nowhere.
+3. **Someone signed in on the new build and tapped Allow.** Check the
+   `device_tokens` collection has at least one document before debugging
+   anything else.
+4. **This workflow imported** and the FCM credential attached.
+
+---
+
+## 6. Troubleshooting
 
 | Symptom | Cause |
 |---|---|
-| `403 PERMISSION_DENIED` | Service account lacks the `firebase.messaging` scope. Grant it **Firebase Cloud Messaging API Admin** in Google Cloud → IAM. |
-| `404 UNREGISTERED` | Dead token — app uninstalled or reinstalled. Harmless. See below. |
-| `400 INVALID_ARGUMENT` | Malformed body. Usually `token` came through empty; check Node 3's field mapping against what your Firestore node actually returns. |
-| HTTP 200, nothing on the phone | Almost always the APNs environment. A TestFlight build is signed for **production** APNs; if the key is only on the development row in Firebase, Apple silently discards it. Upload the key to **both** rows. |
-| Works in Xcode, never on TestFlight | Same cause. `RunnerRelease.entitlements` sets `aps-environment: production` for exactly this reason. |
+| `403 PERMISSION_DENIED` | `Send to FCM` is using the Firestore OAuth2 credential, or the service account credential lacks the `firebase.messaging` scope. |
+| `401 UNAUTHENTICATED` | Private key pasted without its BEGIN/END lines, or with the `\n` escapes not expanded. |
+| `404 UNREGISTERED` | Dead token — app uninstalled. Harmless, see below. |
+| `400 INVALID_ARGUMENT` | `token` came through empty. Check `device_tokens` documents actually have a `token` string field. |
+| `Build FCM Payloads` returns 0 items | `device_tokens` is empty — nobody has signed in on a build that has push. This is step 3, not a bug. |
+| **HTTP 200 but nothing on the phone** | Almost always the APNs environment. A TestFlight build is signed for **production** APNs; if the key sits only on the development row, Apple discards every send without an error. |
+| Works from Xcode, never on TestFlight | Same cause. `RunnerRelease.entitlements` sets `aps-environment: production` for exactly this reason. |
 
 ### Stale tokens
 
-Tokens die when an app is uninstalled. They accumulate harmlessly — FCM just
-returns `404 UNREGISTERED` — but the collection grows and every alert wastes a
-request per dead device. When it starts to matter, add a node after Node 4 that
-deletes the `device_tokens` document whenever the response is `UNREGISTERED`.
+Tokens die when an app is uninstalled. They accumulate harmlessly — FCM returns
+`404 UNREGISTERED` — but every alert then wastes a request per dead device. When
+that starts to matter, add a node after `Send to FCM` that deletes the
+`device_tokens` document whenever the response contains `UNREGISTERED`.
 
-Not worth building yet at three testers.
+Not worth building at three testers.
