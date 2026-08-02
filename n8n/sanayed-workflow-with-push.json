@@ -460,7 +460,7 @@
         1584,
         96
       ],
-      "notes": "NEEDS A CREDENTIAL: Google Service Account API with scope https://www.googleapis.com/auth/firebase.messaging. The Firestore OAuth2 credential carries the datastore scope only and will 403 here. neverError is deliberate -- FCM v1 takes one token per request, so without it one dead token aborts the run and everyone behind it gets nothing."
+      "notes": "Uses a Google Service Account credential scoped to https://www.googleapis.com/auth/firebase.messaging -- NOT the Firestore OAuth2 credential, which carries the datastore scope only and 403s here. neverError is deliberate: FCM v1 takes one token per request, so without it one dead token aborts the run and everyone behind it gets nothing."
     }
   ],
   "connections": {
