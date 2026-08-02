@@ -1,0 +1,108 @@
+{
+  "meta": {
+    "instanceId": "sanayed-push-send"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "needs-attention",
+              "leftValue": "={{ $json.needs_attention }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Needs attention?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [0, 0],
+      "notes": "Routine traffic must never fire a phone. Only needs_attention == true continues."
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "projectId": "whatsapp-ai-agent-waseem",
+        "database": "(default)",
+        "collection": "device_tokens",
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "a1b2c3d4-0002-4000-8000-000000000002",
+      "name": "Get device tokens",
+      "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
+      "typeVersion": 1,
+      "position": [220, 0],
+      "notes": "Service account bypasses security rules, so `allow read: if false` on device_tokens does not block this."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Builds one FCM v1 request body per registered device.\n//\n// CHANGE THIS: 'Write Alert' must be the exact name of the node in your\n// workflow that writes the alert document to Firestore.\nconst ALERT_SOURCE_NODE = 'Write Alert';\n\n// Wire values are lowercase snake_case (see PROJECT_STATE.md data contract).\nconst AR_PRIORITY = {\n  urgent: 'عاجلة',\n  high: 'عالية',\n  medium: 'متوسطة',\n  low: 'منخفضة',\n};\nconst AR_DEPARTMENT = {\n  sales: 'المبيعات',\n  operations: 'العمليات',\n  delivery: 'التوصيل',\n  finance: 'المالية',\n  support: 'الدعم',\n  management: 'الإدارة',\n};\n\nconst alert = $(ALERT_SOURCE_NODE).first().json;\nconst priority = String(alert.priority || '').toLowerCase();\nconst department = String(alert.department || '').toLowerCase();\n\n// Priority and department ONLY. Never the customer's message text -- a\n// notification body renders on a locked screen in full view of the room.\nconst title = 'تنبيه جديد';\nconst body = [AR_PRIORITY[priority] || 'تنبيه', AR_DEPARTMENT[department]]\n  .filter(Boolean)\n  .join(' · ');\n\nreturn $input.all()\n  .map((item) => {\n    const d = item.json;\n    // The native Firestore node returns flat fields; a raw REST call returns\n    // Firestore's typed shape. Accept either so this survives a node swap.\n    const token = d.token || d?.fields?.token?.stringValue || null;\n    if (!token) return null;\n\n    return {\n      json: {\n        token,\n        payload: {\n          message: {\n            token,\n            notification: { title, body },\n            apns: { payload: { aps: { sound: 'default' } } },\n            data: {\n              alert_id: String(alert.alert_id ?? alert.id ?? ''),\n              priority,\n            },\n          },\n        },\n      },\n    };\n  })\n  .filter(Boolean);"
+      },
+      "id": "a1b2c3d4-0003-4000-8000-000000000003",
+      "name": "Build FCM payloads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0],
+      "notes": "Emits one item per device. Edit ALERT_SOURCE_NODE to match your Firestore-write node name."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://fcm.googleapis.com/v1/projects/whatsapp-ai-agent-waseem/messages:send",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-0004-4000-8000-000000000004",
+      "name": "Send to FCM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 0],
+      "notes": "Runs once per device. neverError is deliberate: FCM v1 takes one token per request, so without it a single dead token aborts the run and everyone behind it gets nothing."
+    }
+  ],
+  "connections": {
+    "Needs attention?": {
+      "main": [
+        [{ "node": "Get device tokens", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Get device tokens": {
+      "main": [[{ "node": "Build FCM payloads", "type": "main", "index": 0 }]]
+    },
+    "Build FCM payloads": {
+      "main": [[{ "node": "Send to FCM", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {}
+}
