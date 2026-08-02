@@ -4,9 +4,12 @@ import 'package:provider/provider.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../providers/auth_provider.dart';
 
-/// Passwordless sign-in. Phase 1 collects an email and runs it past the
-/// Firestore allowlist; phase 2 tells the user to open the emailed link and
-/// offers a resend.
+/// Username + password sign-in.
+///
+/// The username is a convenience over a real Firebase Auth email/password
+/// account — the synthetic domain is appended in the service and is never
+/// shown here. There is no signup, no password reset and no account
+/// management: accounts are created by hand in the Firebase Console.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -15,27 +18,24 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _email = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    // Pre-fill when a link was already requested in a previous run.
-    _email.text = context.read<AuthProvider>().email;
-  }
+  final _username = TextEditingController();
+  final _password = TextEditingController();
+  final _passwordFocus = FocusNode();
+  bool _obscure = true;
 
   @override
   void dispose() {
-    _email.dispose();
+    _username.dispose();
+    _password.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     final auth = context.read<AuthProvider>();
     if (auth.busy) return;
-    final value = _email.text.trim();
-    if (value.isEmpty) return;
-    await auth.requestMagicLink(value);
+    if (_username.text.trim().isEmpty || _password.text.isEmpty) return;
+    await auth.signIn(_username.text, _password.text);
   }
 
   @override
@@ -45,10 +45,10 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.watch<AuthProvider>();
 
     final errorText = switch (auth.errorCode) {
+      'invalid_credentials' => l.invalidCredentials,
       'not_allowed' => l.notAuthorized,
-      'send_failed' => l.sendFailed,
-      'link_failed' => l.linkFailed,
-      'google_failed' => l.googleFailed,
+      'too_many_attempts' => l.tooManyAttempts,
+      'sign_in_failed' => l.signInFailed,
       _ => null,
     };
 
@@ -58,91 +58,83 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: const EdgeInsets.all(28),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 380),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Icon(
-                    auth.phase == LoginPhase.linkSent
-                        ? Icons.mark_email_read_outlined
-                        : Icons.insights,
-                    color: Colors.white,
-                    size: 34,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  switch (auth.phase) {
-                    LoginPhase.linkSent => l.linkSentTitle,
-                    LoginPhase.confirmEmail => l.confirmEmailTitle,
-                    LoginPhase.enterEmail => l.appTitle,
-                  },
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  switch (auth.phase) {
-                    LoginPhase.linkSent => l.linkSentBody(auth.email),
-                    LoginPhase.confirmEmail => l.confirmEmailBody,
-                    LoginPhase.enterEmail => l.loginSubtitle,
-                  },
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                if (auth.phase == LoginPhase.confirmEmail) ...[
-                  TextField(
-                    controller: _email,
-                    keyboardType: TextInputType.emailAddress,
-                    autocorrect: false,
-                    autofocus: true,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (v) =>
-                        context.read<AuthProvider>().confirmEmailAndSignIn(v),
-                    decoration: InputDecoration(
-                      labelText: l.emailLabel,
-                      prefixIcon: const Icon(Icons.alternate_email, size: 20),
+            child: AutofillGroup(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Icon(
+                      Icons.insights,
+                      color: Colors.white,
+                      size: 34,
                     ),
                   ),
-                  _ErrorLine(text: errorText),
                   const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: auth.busy
-                        ? null
-                        : () => context
-                            .read<AuthProvider>()
-                            .confirmEmailAndSignIn(_email.text),
-                    child: auth.busy
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(l.completeSignIn),
+                  Text(
+                    l.appTitle,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
-                ] else if (auth.phase == LoginPhase.enterEmail) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    l.loginSubtitle,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  // Credentials are Latin even in the Arabic UI, so both
+                  // fields are forced LTR while the chrome stays RTL.
                   TextField(
-                    controller: _email,
-                    keyboardType: TextInputType.emailAddress,
+                    controller: _username,
+                    textDirection: TextDirection.ltr,
                     autocorrect: false,
-                    autofillHints: const [AutofillHints.email],
+                    enableSuggestions: false,
+                    autofillHints: const [AutofillHints.username],
+                    textInputAction: TextInputAction.next,
+                    onChanged: (_) =>
+                        context.read<AuthProvider>().clearError(),
+                    onSubmitted: (_) => _passwordFocus.requestFocus(),
+                    decoration: InputDecoration(
+                      labelText: l.usernameLabel,
+                      prefixIcon: const Icon(Icons.person_outline, size: 20),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _password,
+                    focusNode: _passwordFocus,
+                    textDirection: TextDirection.ltr,
+                    obscureText: _obscure,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    autofillHints: const [AutofillHints.password],
                     textInputAction: TextInputAction.done,
+                    onChanged: (_) =>
+                        context.read<AuthProvider>().clearError(),
                     onSubmitted: (_) => _submit(),
                     decoration: InputDecoration(
-                      labelText: l.emailLabel,
-                      prefixIcon: const Icon(Icons.alternate_email, size: 20),
+                      labelText: l.passwordLabel,
+                      prefixIcon: const Icon(Icons.lock_outline, size: 20),
+                      suffixIcon: IconButton(
+                        onPressed: () => setState(() => _obscure = !_obscure),
+                        icon: Icon(
+                          _obscure
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          size: 20,
+                        ),
+                      ),
                     ),
                   ),
                   _ErrorLine(text: errorText),
@@ -155,64 +147,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : Text(l.sendMagicLink),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      const Expanded(child: Divider()),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          l.orLabel,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                      const Expanded(child: Divider()),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: auth.busy
-                        ? null
-                        : () => context.read<AuthProvider>().signInWithGoogle(),
-                    icon: Text(
-                      'G',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                    label: Text(l.continueWithGoogle),
-                  ),
-                ] else ...[
-                  _ErrorLine(text: errorText),
-                  const SizedBox(height: 8),
-                  FilledButton.icon(
-                    onPressed: auth.busy
-                        ? null
-                        : () => context.read<AuthProvider>().resend(),
-                    icon: auth.busy
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.refresh, size: 20),
-                    label: Text(l.resendLink),
-                  ),
-                  const SizedBox(height: 10),
-                  TextButton(
-                    onPressed: auth.busy
-                        ? null
-                        : () => context.read<AuthProvider>().editEmail(),
-                    child: Text(l.useDifferentEmail),
+                        : Text(l.signInAction),
                   ),
                 ],
-              ],
+              ),
             ),
           ),
         ),

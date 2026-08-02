@@ -15,53 +15,27 @@ class AppLocalizationsAr extends AppLocalizations {
   String get loginSubtitle => 'تنبيهات ذكية من محادثات واتساب لأعمالك';
 
   @override
-  String get emailLabel => 'البريد الإلكتروني للعمل';
+  String get usernameLabel => 'اسم المستخدم';
 
   @override
-  String get sendMagicLink => 'إرسال رابط الدخول';
+  String get passwordLabel => 'كلمة المرور';
 
   @override
-  String get notAuthorized => 'هذا البريد الإلكتروني غير مصرّح له بإنشاء حساب.';
+  String get signInAction => 'تسجيل الدخول';
 
   @override
-  String get sendFailed => 'تعذّر إرسال رابط الدخول. حاول مرة أخرى.';
+  String get invalidCredentials => 'اسم المستخدم أو كلمة المرور غير صحيحة.';
 
   @override
-  String get linkFailed =>
-      'رابط الدخول غير صالح أو منتهي الصلاحية. اطلب رابطًا جديدًا.';
+  String get notAuthorized => 'هذا الحساب غير مصرّح له باستخدام سانايد.';
 
   @override
-  String get linkSentTitle => 'تحقّق من بريدك';
+  String get tooManyAttempts =>
+      'محاولات كثيرة جدًا. انتظر قليلًا ثم حاول مجددًا.';
 
   @override
-  String linkSentBody(String email) {
-    return 'أرسلنا رابط دخول إلى $email. افتحه على هذا الجهاز للمتابعة.';
-  }
-
-  @override
-  String get resendLink => 'إعادة إرسال الرابط';
-
-  @override
-  String get useDifferentEmail => 'استخدام بريد آخر';
-
-  @override
-  String get confirmEmailTitle => 'أكّد بريدك الإلكتروني';
-
-  @override
-  String get confirmEmailBody =>
-      'فتحت الرابط في متصفح مختلف. أعد إدخال البريد الذي طلبت الرابط له لإكمال تسجيل الدخول.';
-
-  @override
-  String get completeSignIn => 'إكمال تسجيل الدخول';
-
-  @override
-  String get orLabel => 'أو';
-
-  @override
-  String get continueWithGoogle => 'المتابعة بحساب Google';
-
-  @override
-  String get googleFailed => 'لم يكتمل تسجيل الدخول عبر Google. حاول مجددًا.';
+  String get signInFailed =>
+      'تعذّر تسجيل الدخول. تحقّق من اتصالك وحاول مجددًا.';
 
   @override
   String greetingMorning(String name) {

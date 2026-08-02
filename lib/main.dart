@@ -1,5 +1,4 @@
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -24,23 +23,13 @@ Future<void> main() async {
   registerTimeagoLocales();
   final prefs = await SharedPreferences.getInstance();
 
-  // On web the current page URL carries the magic-link parameters when the
-  // user arrives from their inbox. On mobile this is null until App Links
-  // are configured (see auth_service.dart) — the browser completes sign-in
-  // there instead.
-  final initialLink = kIsWeb ? Uri.base.toString() : null;
-
-  runApp(WhatsAppInsightsApp(prefs: prefs, initialLink: initialLink));
+  runApp(WhatsAppInsightsApp(prefs: prefs));
 }
 
 class WhatsAppInsightsApp extends StatelessWidget {
-  WhatsAppInsightsApp({super.key, required this.prefs, this.initialLink});
+  WhatsAppInsightsApp({super.key, required this.prefs});
 
   final SharedPreferences prefs;
-
-  /// URL the app was launched with; on web this is the current page URL,
-  /// which carries the magic-link parameters after an email click.
-  final String? initialLink;
 
   /// One service instance shared by both providers — same collection, two
   /// differently-scoped queries.
@@ -52,10 +41,7 @@ class WhatsAppInsightsApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => SettingsProvider(prefs)),
         ChangeNotifierProvider(
-          // On web the launch URL IS the magic link when the user clicks it
-          // from their inbox, so it is handed straight to restore().
-          create: (_) => AuthProvider(FirebaseAuthService())
-            ..restore(initialLink: initialLink),
+          create: (_) => AuthProvider(FirebaseAuthService())..restore(),
         ),
         // Two Firestore subscriptions, both above the navigation shell and
         // both started once when it mounts — never per-screen.

@@ -1,48 +1,52 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_user.dart';
 
-/// Outcome of asking for a magic link.
-enum LinkRequestResult {
-  sent,
+/// Why a sign-in attempt did not produce a session.
+enum SignInFailure {
+  /// Username or password did not match. Deliberately does not distinguish
+  /// "no such account" from "wrong password" — see [_mapAuthError].
+  invalidCredentials,
 
-  /// The email is not in the `allowed_users` allowlist.
+  /// Firebase authenticated the account, but it is not in `allowed_users`.
   notAllowed,
 
-  /// Firebase rejected the request (provider disabled, bad domain, offline…).
+  /// Firebase temporarily blocked the account after repeated failures.
+  tooManyAttempts,
+
+  /// Network trouble, provider disabled, allowlist unreachable, anything else.
   failed,
+}
+
+/// Outcome of a sign-in attempt: either a user, or a reason there isn't one.
+class SignInResult {
+  const SignInResult.success(AppUser this.user) : failure = null;
+  const SignInResult.failure(SignInFailure this.failure) : user = null;
+
+  final AppUser? user;
+  final SignInFailure? failure;
+
+  bool get ok => user != null;
 }
 
 /// Auth abstraction. The rest of the app depends only on this interface, so
 /// the sign-in mechanism can change without touching the UI.
 abstract class AuthService {
-  /// Checks the allowlist, then emails a sign-in link.
-  Future<LinkRequestResult> sendMagicLink(String email);
-
-  /// True when [link] is a Firebase email sign-in link.
-  bool isMagicLink(String link);
-
-  /// Completes sign-in from a link. [emailOverride] is used when the link was
-  /// opened in a different browser/device than it was requested from, so the
-  /// saved address is unavailable and the user re-types it.
-  Future<AppUser?> completeSignInFromLink(String link, {String? emailOverride});
-
-  /// The email a link was last requested for, if any.
-  Future<String?> pendingEmail();
-
-  /// Google sign-in, gated by the same `allowed_users` allowlist as magic
-  /// links — Google must not be a side door around the gatekeeper.
-  Future<AppUser?> signInWithGoogle();
+  /// Signs in with a username and password.
+  ///
+  /// The username is a presentation convenience only: internally every account
+  /// is an ordinary Firebase Auth email/password user. Credentials are checked
+  /// by Firebase and nowhere else — this app holds no usernames, no passwords
+  /// and performs no local comparison.
+  Future<SignInResult> signInWithPassword(String username, String password);
 
   Future<void> signOut();
 
   /// Restores an existing Firebase session on startup.
   Future<AppUser?> restoreSession();
 
-  /// Last failure message, for surfacing in the UI.
+  /// Last failure message, for diagnostics.
   String? get lastError;
 }
 
@@ -56,186 +60,123 @@ class FirebaseAuthService implements AuthService {
   final FirebaseAuth _auth;
   final FirebaseFirestore _db;
 
-  static const _emailKey = 'pending_sign_in_email';
   static const allowlistCollection = 'allowed_users';
+
+  /// Every account is a Firebase email/password user under this domain. Staff
+  /// type the local part only; the domain is never shown and never typed.
+  ///
+  /// It is synthetic — no mailbox exists behind it. That is why this app has
+  /// no signup, no password reset and no email verification: none of those
+  /// could deliver anywhere. Accounts are created by hand in the Firebase
+  /// Console, and a forgotten password is reset there too.
+  static const String accountDomain = 'sanayed.app';
 
   String? _lastError;
 
   @override
   String? get lastError => _lastError;
 
-  // ---------------------------------------------------------------------
-  // TODO(you): confirm these before magic links will work.
-  //
-  //  * url — MUST be an https URL on a domain listed under Firebase Console
-  //    → Authentication → Settings → Authorized domains. Your Hosting domain
-  //    (https://whatsapp-ai-agent-waseem.web.app) is authorized by default.
-  //    For local web testing point it at http://localhost:5599 and add
-  //    `localhost` to that same authorized-domains list.
-  //
-  //    NOTE: Firebase Dynamic Links has been shut down, so there is no
-  //    dynamicLinkDomain here any more — a plain https continue URL is the
-  //    current supported approach.
-  //
-  //  * iOSBundleId — your iOS bundle id (no iOS target exists yet).
-  //  * androidPackageName — com.sanayed.analyzer, matching
-  //    android/app/build.gradle.kts. Opening the link straight into the
-  //    installed Android app additionally needs an App Links intent-filter
-  //    plus a hosted /.well-known/assetlinks.json; until that exists the link
-  //    opens in the browser, which still completes sign-in on web.
-  // ---------------------------------------------------------------------
-  /// Where the emailed link sends the user back to.
+  /// Maps a typed username onto its Firebase Auth address.
   ///
-  /// Defaults to the local dev server so sign-in can be tested immediately —
-  /// Firebase authorizes `localhost` out of the box (any port). Override per
-  /// environment without touching code:
-  ///   flutter build web --dart-define=AUTH_CONTINUE_URL=https://your.domain/
-  static const String continueUrl = String.fromEnvironment(
-    'AUTH_CONTINUE_URL',
-    defaultValue: 'http://localhost:5599/',
-  );
-
-  // NOTE: no iOSBundleId here — no iOS app is registered in this Firebase
-  // project, and passing an unregistered bundle id makes Firebase reject the
-  // whole sendSignInLinkToEmail call (the "could not send" failure seen on
-  // the first Android build).
-  static final ActionCodeSettings _actionCodeSettings = ActionCodeSettings(
-    url: continueUrl,
-    handleCodeInApp: true, // required for email-link sign-in
-    androidPackageName: 'com.sanayed.analyzer',
-    androidInstallApp: false,
-  );
-
-  /// Gatekeeper: the email must exist in `allowed_users`.
-  ///
-  /// Firestore string equality is case-sensitive, so the lookup uses a
-  /// normalised lowercase address. Documents are expected to store `email`
-  /// already lowercased; a second exact-case query covers legacy rows that
-  /// were entered with capitals.
-  Future<bool> _isAllowed(String normalisedEmail, String rawEmail) async {
-    Future<bool> matches(String value) async {
-      final snap = await _db
-          .collection(allowlistCollection)
-          .where('email', isEqualTo: value)
-          .limit(1)
-          .get();
-      return snap.docs.isNotEmpty;
+  /// Strips the domain first so that a user who types the full address anyway
+  /// — or whose password manager autofills it — does not end up attempting
+  /// `name@sanayed.app@sanayed.app`.
+  static String emailForUsername(String username) {
+    const suffix = '@$accountDomain';
+    var name = username.trim().toLowerCase();
+    if (name.endsWith(suffix)) {
+      name = name.substring(0, name.length - suffix.length);
     }
+    return '$name$suffix';
+  }
 
-    if (await matches(normalisedEmail)) return true;
-    if (rawEmail != normalisedEmail && await matches(rawEmail)) return true;
-    return false;
+  /// Gatekeeper: the account's address must exist in `allowed_users`.
+  ///
+  /// Firestore string equality is case-sensitive. [email] always arrives
+  /// lowercased from [emailForUsername], so allowlist rows must store the
+  /// address lowercased too.
+  Future<bool> _isAllowed(String email) async {
+    final snap = await _db
+        .collection(allowlistCollection)
+        .where('email', isEqualTo: email)
+        .limit(1)
+        .get();
+    return snap.docs.isNotEmpty;
   }
 
   @override
-  Future<LinkRequestResult> sendMagicLink(String email) async {
+  Future<SignInResult> signInWithPassword(
+    String username,
+    String password,
+  ) async {
     _lastError = null;
-    final raw = email.trim();
-    final normalised = raw.toLowerCase();
-    if (normalised.isEmpty) return LinkRequestResult.failed;
-
-    try {
-      if (!await _isAllowed(normalised, raw)) {
-        return LinkRequestResult.notAllowed;
-      }
-    } catch (e) {
-      _lastError = 'Allowlist lookup failed: $e';
-      return LinkRequestResult.failed;
+    final email = emailForUsername(username);
+    // An empty username collapses to a bare "@sanayed.app"; reject it here
+    // rather than spending a round-trip on a request that cannot succeed.
+    if (email.startsWith('@') || password.isEmpty) {
+      return const SignInResult.failure(SignInFailure.invalidCredentials);
     }
 
+    final UserCredential cred;
     try {
-      await _auth.sendSignInLinkToEmail(
-        email: normalised,
-        actionCodeSettings: _actionCodeSettings,
+      cred = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
       );
-      // Firebase requires the same address back when completing the link.
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_emailKey, normalised);
-      return LinkRequestResult.sent;
     } on FirebaseAuthException catch (e) {
       _lastError = e.message ?? e.code;
-      return LinkRequestResult.failed;
+      return SignInResult.failure(_mapAuthError(e.code));
     } catch (e) {
       _lastError = '$e';
-      return LinkRequestResult.failed;
+      return const SignInResult.failure(SignInFailure.failed);
     }
-  }
 
-  @override
-  bool isMagicLink(String link) {
+    // The same gatekeeper Google sign-in uses. Firebase has already minted a
+    // session by this point, so a non-allowlisted account is signed straight
+    // back out before it can read anything.
     try {
-      return _auth.isSignInWithEmailLink(link);
-    } catch (_) {
-      return false;
-    }
-  }
-
-  @override
-  Future<String?> pendingEmail() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_emailKey);
-  }
-
-  @override
-  Future<AppUser?> completeSignInFromLink(String link, {String? emailOverride}) async {
-    _lastError = null;
-    final email = emailOverride?.trim().toLowerCase() ?? await pendingEmail();
-    if (email == null || email.isEmpty) {
-      // Link opened on a different device/browser than it was requested from.
-      // The caller re-prompts for the address and calls back with an override.
-      _lastError = 'no-pending-email';
-      return null;
-    }
-    try {
-      final cred = await _auth.signInWithEmailLink(email: email, emailLink: link);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_emailKey);
-      return await _toAppUser(cred.user);
-    } on FirebaseAuthException catch (e) {
-      _lastError = e.message ?? e.code;
-      return null;
-    }
-  }
-
-  @override
-  Future<AppUser?> signInWithGoogle() async {
-    _lastError = null;
-    try {
-      final provider = GoogleAuthProvider();
-      // Web: popup. Android/iOS: the SDK's browser-based provider flow
-      // (Custom Tab) — deliberately NOT the google_sign_in native plugin,
-      // because the browser flow needs no SHA fingerprint registration and
-      // no serverClientId, so it works on a fresh release APK as-is.
-      final cred = kIsWeb
-          ? await _auth.signInWithPopup(provider)
-          : await _auth.signInWithProvider(provider);
-
-      final email = (cred.user?.email ?? '').toLowerCase();
-      if (email.isEmpty || !await _isAllowed(email, email)) {
-        // Same gatekeeper as magic links. The Firebase user was already
-        // minted by Google, so sign straight back out before reporting.
+      if (!await _isAllowed(email)) {
         await _auth.signOut();
         _lastError = 'not-allowed';
-        return null;
+        return const SignInResult.failure(SignInFailure.notAllowed);
       }
-      return await _toAppUser(cred.user);
-    } on FirebaseAuthException catch (e) {
-      // User closing the popup/tab lands here too — harmless codes like
-      // popup-closed-by-user / web-context-canceled.
-      _lastError = e.message ?? e.code;
-      return null;
     } catch (e) {
-      _lastError = '$e';
-      return null;
+      // Failing open here would leave an unvetted account holding a live
+      // session, so an unreachable allowlist signs out too.
+      await _auth.signOut();
+      _lastError = 'Allowlist lookup failed: $e';
+      return const SignInResult.failure(SignInFailure.failed);
     }
+
+    final user = await _toAppUser(cred.user);
+    if (user == null) {
+      await _auth.signOut();
+      _lastError = 'no-user';
+      return const SignInResult.failure(SignInFailure.failed);
+    }
+    return SignInResult.success(user);
   }
 
+  /// Newer Firebase SDKs collapse unknown-account and wrong-password into a
+  /// single `invalid-credential`; older ones still send the split codes. Every
+  /// one of them must look identical to the user, so a wrong guess cannot be
+  /// used to discover which usernames exist.
+  SignInFailure _mapAuthError(String code) => switch (code) {
+        'invalid-credential' ||
+        'invalid-login-credentials' ||
+        'wrong-password' ||
+        'user-not-found' ||
+        'invalid-email' =>
+          SignInFailure.invalidCredentials,
+        'too-many-requests' => SignInFailure.tooManyAttempts,
+        // A disabled account is a revoked account: report it as such rather
+        // than telling the user to retype a password that is in fact correct.
+        'user-disabled' => SignInFailure.notAllowed,
+        _ => SignInFailure.failed,
+      };
+
   @override
-  Future<void> signOut() async {
-    await _auth.signOut();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_emailKey);
-  }
+  Future<void> signOut() => _auth.signOut();
 
   @override
   Future<AppUser?> restoreSession() => _toAppUser(_auth.currentUser);
@@ -247,19 +188,21 @@ class FirebaseAuthService implements AuthService {
   Future<AppUser?> _toAppUser(User? user) async {
     if (user == null) return null;
     final email = (user.email ?? '').toLowerCase();
+    final username = email.split('@').first;
     return AppUser(
-      username: email,
-      displayName: _displayNameFor(user, email),
+      username: username,
+      displayName: _displayNameFor(user, username),
       role: await roleFor(email),
     );
   }
 
-  String _displayNameFor(User user, String email) {
+  /// Staff never see the synthetic domain, so the fallback display name is
+  /// built from the username alone.
+  String _displayNameFor(User user, String username) {
     final name = user.displayName?.trim();
     if (name != null && name.isNotEmpty) return name;
-    final local = email.split('@').first;
-    if (local.isEmpty) return email;
-    return local[0].toUpperCase() + local.substring(1);
+    if (username.isEmpty) return '';
+    return username[0].toUpperCase() + username.substring(1);
   }
 
   /// Role recorded on the allowlist row, defaulting to owner.

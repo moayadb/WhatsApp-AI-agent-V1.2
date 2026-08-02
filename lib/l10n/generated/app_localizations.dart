@@ -110,95 +110,47 @@ abstract class AppLocalizations {
   /// **'AI-powered alerts from your WhatsApp operations'**
   String get loginSubtitle;
 
-  /// No description provided for @emailLabel.
+  /// No description provided for @usernameLabel.
   ///
   /// In en, this message translates to:
-  /// **'Work email'**
-  String get emailLabel;
+  /// **'Username'**
+  String get usernameLabel;
 
-  /// No description provided for @sendMagicLink.
+  /// No description provided for @passwordLabel.
   ///
   /// In en, this message translates to:
-  /// **'Send sign-in link'**
-  String get sendMagicLink;
+  /// **'Password'**
+  String get passwordLabel;
+
+  /// No description provided for @signInAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get signInAction;
+
+  /// No description provided for @invalidCredentials.
+  ///
+  /// In en, this message translates to:
+  /// **'Incorrect username or password.'**
+  String get invalidCredentials;
 
   /// No description provided for @notAuthorized.
   ///
   /// In en, this message translates to:
-  /// **'This email is not authorized to create an account.'**
+  /// **'This account is not authorized to use Sanayed.'**
   String get notAuthorized;
 
-  /// No description provided for @sendFailed.
+  /// No description provided for @tooManyAttempts.
   ///
   /// In en, this message translates to:
-  /// **'Could not send the sign-in link. Please try again.'**
-  String get sendFailed;
+  /// **'Too many attempts. Wait a moment and try again.'**
+  String get tooManyAttempts;
 
-  /// No description provided for @linkFailed.
+  /// No description provided for @signInFailed.
   ///
   /// In en, this message translates to:
-  /// **'That sign-in link is invalid or expired. Request a new one.'**
-  String get linkFailed;
-
-  /// No description provided for @linkSentTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Check your inbox'**
-  String get linkSentTitle;
-
-  /// No description provided for @linkSentBody.
-  ///
-  /// In en, this message translates to:
-  /// **'We sent a sign-in link to {email}. Open it on this device to continue.'**
-  String linkSentBody(String email);
-
-  /// No description provided for @resendLink.
-  ///
-  /// In en, this message translates to:
-  /// **'Resend sign-in link'**
-  String get resendLink;
-
-  /// No description provided for @useDifferentEmail.
-  ///
-  /// In en, this message translates to:
-  /// **'Use a different email'**
-  String get useDifferentEmail;
-
-  /// No description provided for @confirmEmailTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Confirm your email'**
-  String get confirmEmailTitle;
-
-  /// No description provided for @confirmEmailBody.
-  ///
-  /// In en, this message translates to:
-  /// **'You opened the link in a different browser. Re-enter the address you requested it for to finish signing in.'**
-  String get confirmEmailBody;
-
-  /// No description provided for @completeSignIn.
-  ///
-  /// In en, this message translates to:
-  /// **'Complete sign-in'**
-  String get completeSignIn;
-
-  /// No description provided for @orLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'or'**
-  String get orLabel;
-
-  /// No description provided for @continueWithGoogle.
-  ///
-  /// In en, this message translates to:
-  /// **'Continue with Google'**
-  String get continueWithGoogle;
-
-  /// No description provided for @googleFailed.
-  ///
-  /// In en, this message translates to:
-  /// **'Google sign-in did not complete. Please try again.'**
-  String get googleFailed;
+  /// **'Could not sign in. Check your connection and try again.'**
+  String get signInFailed;
 
   /// No description provided for @greetingMorning.
   ///

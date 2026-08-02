@@ -15,55 +15,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginSubtitle => 'AI-powered alerts from your WhatsApp operations';
 
   @override
-  String get emailLabel => 'Work email';
+  String get usernameLabel => 'Username';
 
   @override
-  String get sendMagicLink => 'Send sign-in link';
+  String get passwordLabel => 'Password';
 
   @override
-  String get notAuthorized =>
-      'This email is not authorized to create an account.';
+  String get signInAction => 'Sign in';
 
   @override
-  String get sendFailed => 'Could not send the sign-in link. Please try again.';
+  String get invalidCredentials => 'Incorrect username or password.';
 
   @override
-  String get linkFailed =>
-      'That sign-in link is invalid or expired. Request a new one.';
+  String get notAuthorized => 'This account is not authorized to use Sanayed.';
 
   @override
-  String get linkSentTitle => 'Check your inbox';
+  String get tooManyAttempts =>
+      'Too many attempts. Wait a moment and try again.';
 
   @override
-  String linkSentBody(String email) {
-    return 'We sent a sign-in link to $email. Open it on this device to continue.';
-  }
-
-  @override
-  String get resendLink => 'Resend sign-in link';
-
-  @override
-  String get useDifferentEmail => 'Use a different email';
-
-  @override
-  String get confirmEmailTitle => 'Confirm your email';
-
-  @override
-  String get confirmEmailBody =>
-      'You opened the link in a different browser. Re-enter the address you requested it for to finish signing in.';
-
-  @override
-  String get completeSignIn => 'Complete sign-in';
-
-  @override
-  String get orLabel => 'or';
-
-  @override
-  String get continueWithGoogle => 'Continue with Google';
-
-  @override
-  String get googleFailed =>
-      'Google sign-in did not complete. Please try again.';
+  String get signInFailed =>
+      'Could not sign in. Check your connection and try again.';
 
   @override
   String greetingMorning(String name) {

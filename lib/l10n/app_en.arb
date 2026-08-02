@@ -2,28 +2,13 @@
   "@@locale": "en",
   "appTitle": "Sanayed",
   "loginSubtitle": "AI-powered alerts from your WhatsApp operations",
-  "emailLabel": "Work email",
-  "sendMagicLink": "Send sign-in link",
-  "notAuthorized": "This email is not authorized to create an account.",
-  "sendFailed": "Could not send the sign-in link. Please try again.",
-  "linkFailed": "That sign-in link is invalid or expired. Request a new one.",
-  "linkSentTitle": "Check your inbox",
-  "linkSentBody": "We sent a sign-in link to {email}. Open it on this device to continue.",
-  "@linkSentBody": {
-    "placeholders": {
-      "email": {
-        "type": "String"
-      }
-    }
-  },
-  "resendLink": "Resend sign-in link",
-  "useDifferentEmail": "Use a different email",
-  "confirmEmailTitle": "Confirm your email",
-  "confirmEmailBody": "You opened the link in a different browser. Re-enter the address you requested it for to finish signing in.",
-  "completeSignIn": "Complete sign-in",
-  "orLabel": "or",
-  "continueWithGoogle": "Continue with Google",
-  "googleFailed": "Google sign-in did not complete. Please try again.",
+  "usernameLabel": "Username",
+  "passwordLabel": "Password",
+  "signInAction": "Sign in",
+  "invalidCredentials": "Incorrect username or password.",
+  "notAuthorized": "This account is not authorized to use Sanayed.",
+  "tooManyAttempts": "Too many attempts. Wait a moment and try again.",
+  "signInFailed": "Could not sign in. Check your connection and try again.",
   "greetingMorning": "Good morning, {name}",
   "@greetingMorning": {
     "placeholders": {
