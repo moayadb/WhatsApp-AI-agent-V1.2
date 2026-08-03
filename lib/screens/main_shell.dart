@@ -9,7 +9,9 @@ import '../providers/alerts_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/push_service.dart';
 import '../widgets/connection_pill.dart';
+import 'alert_detail_screen.dart';
 import 'alerts_tab.dart';
 import 'dashboard_tab.dart';
 import 'settings_tab.dart';
@@ -31,6 +33,15 @@ class _MainShellState extends State<MainShell> {
   /// pill every 30 seconds (spec §8) — the data itself needs no refresh.
   Timer? _ticker;
 
+  /// Notification taps arriving while the app is alive. This is the shell, not
+  /// a tab: it mounts once per session and owns the navigator the detail
+  /// screen is pushed onto, so the subscription is app-level in practice.
+  StreamSubscription<String>? _tapSub;
+
+  /// The alert currently showing in a pushed detail route, so tapping the same
+  /// notification twice does not stack two identical screens.
+  String? _openDetailId;
+
   @override
   void initState() {
     super.initState();
@@ -49,12 +60,39 @@ class _MainShellState extends State<MainShell> {
         alerts.applyRoleDefault(role);
         dashboard.applyRoleDefault(role);
       }
+      _startTapHandling();
     });
+  }
+
+  /// Wires up notification taps, and opens the alert the app was launched by
+  /// if it was launched from a notification.
+  ///
+  /// Done here rather than in `PushService` so the service layer never has to
+  /// import a screen. The service reports the intent; the shell navigates.
+  Future<void> _startTapHandling() async {
+    final push = context.read<PushService>();
+    _tapSub = push.onAlertTapped.listen(_openAlert);
+    final launchedWith = await push.startTapHandling();
+    if (launchedWith != null) await _openAlert(launchedWith);
+  }
+
+  Future<void> _openAlert(String alertId) async {
+    if (!mounted || _openDetailId == alertId) return;
+    _openDetailId = alertId;
+    // Alerts is the tab this belongs to; land there so Back is coherent.
+    setState(() => _tab = 1);
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AlertDetailScreen(alertId: alertId),
+      ),
+    );
+    if (mounted) _openDetailId = null;
   }
 
   @override
   void dispose() {
     _ticker?.cancel();
+    _tapSub?.cancel();
     super.dispose();
   }
 

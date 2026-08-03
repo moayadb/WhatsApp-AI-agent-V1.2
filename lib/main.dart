@@ -32,6 +32,11 @@ class WhatsAppInsightsApp extends StatelessWidget {
 
   final SharedPreferences prefs;
 
+  /// One push instance for the whole app: AuthProvider drives registration
+  /// off the session lifecycle, and MainShell listens to it for notification
+  /// taps. Two instances would mean the shell watching a stream nothing feeds.
+  final PushService _pushService = PushService();
+
   /// One service instance shared by both providers — same collection, two
   /// differently-scoped queries.
   final AlertsService _alertsService = AlertsService();
@@ -41,13 +46,14 @@ class WhatsAppInsightsApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => SettingsProvider(prefs)),
+        Provider<PushService>.value(value: _pushService),
         ChangeNotifierProvider(
           // Push registration rides on the session lifecycle — a token is only
           // useful while somebody is signed in, and must be dropped on the way
           // out. See PushService: the app only ever receives; the send is
           // server-side from whatever writes the alert document.
           create: (_) =>
-              AuthProvider(FirebaseAuthService(), PushService())..restore(),
+              AuthProvider(FirebaseAuthService(), _pushService)..restore(),
         ),
         // Two Firestore subscriptions, both above the navigation shell and
         // both started once when it mounts — never per-screen.

@@ -27,7 +27,17 @@ class AlertDetailScreen extends StatelessWidget {
 
     final matches = provider.allAlerts.where((a) => a.id == alertId);
     if (matches.isEmpty) {
-      // Slid out of the 200-alert window while open — nothing to show.
+      // Opened from a notification tap on a cold start: the alert almost
+      // certainly exists, the stream just has not delivered its first snapshot
+      // yet. Showing the empty state here would tell the user their alert does
+      // not exist a heartbeat before it appears.
+      if (provider.streamState == StreamState.connecting) {
+        return Scaffold(
+          appBar: AppBar(title: Text(l.detailTitle)),
+          body: const Center(child: CircularProgressIndicator()),
+        );
+      }
+      // Genuinely absent: slid out of the 200-alert window.
       return Scaffold(
         appBar: AppBar(title: Text(l.detailTitle)),
         body: Center(child: Text(l.emptyAlertsTitle)),

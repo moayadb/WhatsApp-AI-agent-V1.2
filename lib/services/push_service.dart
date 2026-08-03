@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -42,6 +43,48 @@ class PushService {
 
   String? _deviceId;
   String? _email;
+
+  /// Alert ids from notification taps that happened while the app was already
+  /// running (backgrounded). Broadcast because the shell may resubscribe.
+  final StreamController<String> _taps = StreamController<String>.broadcast();
+  StreamSubscription<RemoteMessage>? _tapSub;
+
+  /// Emits the `alert_id` of a notification the user tapped while the app was
+  /// alive. A tap that *launched* the app arrives via [startTapHandling]
+  /// instead — iOS delivers that one differently, and nothing is listening to
+  /// this stream that early anyway.
+  Stream<String> get onAlertTapped => _taps.stream;
+
+  /// Begins listening for notification taps, and returns the alert id the app
+  /// was **launched** by, if it was launched by one.
+  ///
+  /// Safe to call more than once: the subscription is created only on the
+  /// first call.
+  Future<String?> startTapHandling() async {
+    if (!_supported) return null;
+    try {
+      _tapSub ??= FirebaseMessaging.onMessageOpenedApp.listen(
+        (message) {
+          final id = _alertIdOf(message);
+          if (id != null) _taps.add(id);
+        },
+        onError: (Object e) => debugPrint('PushService: tap stream error: $e'),
+      );
+      return _alertIdOf(await _messaging.getInitialMessage());
+    } catch (e) {
+      debugPrint('PushService.startTapHandling failed: $e');
+      return null;
+    }
+  }
+
+  /// The alert this notification points at, or null if it carries no usable
+  /// id. The sender puts it in `data.alert_id`; `notification` payloads carry
+  /// only display text, so anything else is not deep-linkable.
+  String? _alertIdOf(RemoteMessage? message) {
+    final raw = message?.data['alert_id'];
+    if (raw is String && raw.trim().isNotEmpty) return raw.trim();
+    return null;
+  }
 
   /// Asks for notification permission and records the token for [email].
   ///
@@ -145,5 +188,11 @@ class PushService {
     return List<int>.generate(16, (_) => r.nextInt(256))
         .map((b) => b.toRadixString(16).padLeft(2, '0'))
         .join();
+  }
+
+  /// Only meaningful in tests — the app holds one instance for its lifetime.
+  Future<void> dispose() async {
+    await _tapSub?.cancel();
+    await _taps.close();
   }
 }
