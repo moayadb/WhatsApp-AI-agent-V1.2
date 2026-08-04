@@ -55,6 +55,9 @@ const body = s('summary') || 'تنبيه جديد يحتاج مراجعة';
 const alert = { title, body };
 if (subtitle) alert.subtitle = subtitle;
 
+// Android has no subtitle slot, so the sender folds into the body instead.
+const androidBody = subtitle ? `${subtitle}: ${body}` : body;
+
 // Firestore REST returns { documents: [...] } and omits the key when empty.
 const docs = $input.first().json?.documents ?? [];
 
@@ -67,9 +70,10 @@ return docs
       payload: {
         message: {
           token,
-          // Cross-platform fallback for Android/web. iOS ignores this in
-          // favour of aps.alert below, which is the ONLY place APNs accepts a
-          // subtitle -- message.notification has no such field.
+          // Cross-platform fallback. iOS ignores this in favour of aps.alert
+          // below, which is the ONLY place APNs accepts a subtitle --
+          // message.notification has no such field. Android overrides it via
+          // the android block.
           notification: { title, body },
           apns: {
             payload: {
@@ -77,6 +81,20 @@ return docs
                 alert,
                 sound: 'default',
               },
+            },
+          },
+          android: {
+            notification: {
+              // No subtitle slot on Android: sender goes into the body.
+              body: androidBody,
+              // Channel + icon must match what the app declares --
+              // MainActivity.kt creates the channel, the manifest and
+              // res/drawable/ic_stat_sanayed.xml define the icon. A channel id
+              // Android doesn't know would drop alerts into the generic
+              // "Miscellaneous" bucket; an unknown icon name shows a blank.
+              channel_id: 'sanayed_alerts',
+              icon: 'ic_stat_sanayed',
+              sound: 'default',
             },
           },
           data: { alert_id: alertId, priority },

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand primary (lib/theme/app_theme.dart). Tints the notification
+         icon in the pulled-down shade; the status bar ignores it. -->
+    <color name="notification_accent">#047857</color>
+</resources>
