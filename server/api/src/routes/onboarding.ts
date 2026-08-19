@@ -11,6 +11,7 @@ import {
   type RefineContext,
 } from '../intake';
 import { llmConfigured } from '../llm';
+import { savePrompt } from '../prompt';
 import { sessionOf } from '../session';
 
 /** Whether any real interviewer (n8n workflow or direct model) is wired up. */
@@ -129,42 +130,20 @@ export default async function onboardingRoutes(
       );
 
       if (turn.done) {
-        if (refine) {
-          // Only overwrite when the model actually produced an updated prompt;
-          // a refine turn that changed nothing must not blank the existing one.
-          if (turn.generatedPrompt) {
-            await pool.query(
-              `UPDATE org_profiles SET
-                 generated_prompt = $2,
-                 prompt_source = $3,
-                 prompt_updated_at = now(),
-                 updated_at = now()
-               WHERE org_id = $1`,
-              [orgId, turn.generatedPrompt, turn.source],
-            );
-          }
-          // Topics move independently: a workflow that has not started
-          // returning them yet must leave the manager's existing labels alone
-          // rather than emptying the Settings screen.
-          if (turn.topics.length > 0) {
-            await pool.query(
-              `UPDATE org_profiles SET prompt_topics = $2::jsonb, updated_at = now()
-                WHERE org_id = $1`,
-              [orgId, JSON.stringify(turn.topics)],
-            );
-          }
-        } else {
-          await pool.query(
-            `UPDATE org_profiles SET
-               generated_prompt = $2,
-               prompt_source = $3,
-               prompt_topics = $4::jsonb,
-               prompt_updated_at = now(),
-               completed_at = now(),
-               updated_at = now()
-             WHERE org_id = $1`,
-            [orgId, turn.generatedPrompt, turn.source, JSON.stringify(turn.topics)],
-          );
+        // Prompt and topics are written together, through the one function
+        // that guarantees they describe each other — see `savePrompt`. A
+        // refine turn that produced no prompt changed nothing, so the existing
+        // prompt and its labels both stand.
+        if (turn.generatedPrompt) {
+          await savePrompt({
+            orgId,
+            prompt: turn.generatedPrompt,
+            source: turn.source,
+            // The same turn already described what it wrote.
+            topics: turn.topics,
+            locale,
+            completeOnboarding: !refine,
+          });
         }
 
         // Only write thresholds the interview actually established. A model
@@ -266,9 +245,10 @@ export default async function onboardingRoutes(
    * asking for it, and never sees this text. It stays as the support path for
    * when a prompt has to be fixed by hand.
    *
-   * `topics` is accepted alongside because they are the manager-facing
-   * description of this prompt: rewriting the prompt without them leaves the
-   * Settings screen describing rules that no longer exist.
+   * This is the write that most needs the invariant: there is no conversation
+   * here to produce topics as a side effect, so `savePrompt` asks the workflow
+   * to describe the new text (contract 6, `mode: "topics"`). Explicit `topics`
+   * are honoured for the case where the operator knows better than the model.
    */
   app.patch(
     '/onboarding/prompt',
@@ -283,19 +263,23 @@ export default async function onboardingRoutes(
       if (!parsed.success) return reply.code(400).send({ error: 'invalid_input' });
 
       const { orgId } = sessionOf(request);
-      const topics = parsed.data.topics
-        ? sanitizeTopics(parsed.data.topics)
-        : null;
-      const { rows } = await pool.query(
-        `UPDATE org_profiles SET generated_prompt = $2, prompt_source = 'manual',
-                                 prompt_topics = COALESCE($3::jsonb, prompt_topics),
-                                 prompt_updated_at = now(), updated_at = now()
-          WHERE org_id = $1
-        RETURNING generated_prompt, prompt_source, prompt_topics`,
-        [orgId, parsed.data.generated_prompt, topics ? JSON.stringify(topics) : null],
-      );
-      if (rows.length === 0) return reply.code(404).send({ error: 'not_found' });
-      return reply.send(rows[0]);
+      const profile = await one('SELECT org_id FROM org_profiles WHERE org_id = $1', [
+        orgId,
+      ]);
+      if (!profile) return reply.code(404).send({ error: 'not_found' });
+
+      const { topics } = await savePrompt({
+        orgId,
+        prompt: parsed.data.generated_prompt,
+        source: 'manual',
+        topics: sanitizeTopics(parsed.data.topics ?? []),
+      });
+
+      return reply.send({
+        generated_prompt: parsed.data.generated_prompt,
+        prompt_source: 'manual',
+        prompt_topics: topics,
+      });
     },
   );
 

@@ -122,26 +122,22 @@ class SettingsTab extends StatelessWidget {
             const SizedBox(height: 20),
           ],
 
+          // Light and dark are one tap in the app bar, where the manager is
+          // when he notices the room got dark. All that is left here is the
+          // decision he makes once: whether to follow the phone at all.
           _Section(title: l10n.appearanceTitle),
           Card(
-            child: RadioGroup<ThemeMode>(
-              groupValue: prefs.themeMode,
-              onChanged: (mode) => mode == null ? null : prefs.setThemeMode(mode),
-              child: Column(
-                children: [
-                  RadioListTile<ThemeMode>(
-                    value: ThemeMode.system,
-                    title: Text(l10n.themeSystem),
-                  ),
-                  RadioListTile<ThemeMode>(
-                    value: ThemeMode.light,
-                    title: Text(l10n.themeLight),
-                  ),
-                  RadioListTile<ThemeMode>(
-                    value: ThemeMode.dark,
-                    title: Text(l10n.themeDark),
-                  ),
-                ],
+            child: SwitchListTile(
+              title: Text(l10n.themeSystem),
+              value: prefs.themeMode == ThemeMode.system,
+              onChanged: (follow) => prefs.setThemeMode(
+                follow
+                    ? ThemeMode.system
+                    // Turning it off keeps what is on screen right now, rather
+                    // than snapping to a brightness he did not ask for.
+                    : (theme.brightness == Brightness.dark
+                          ? ThemeMode.dark
+                          : ThemeMode.light),
               ),
             ),
           ),
@@ -245,6 +241,7 @@ class _WatchingCard extends StatefulWidget {
 
 class _WatchingCardState extends State<_WatchingCard> {
   List<String> _topics = const [];
+  bool _aiEnabled = true;
   bool _loading = true;
   bool _failed = false;
 
@@ -265,6 +262,7 @@ class _WatchingCardState extends State<_WatchingCard> {
       if (!mounted) return;
       setState(() {
         _topics = result.topics;
+        _aiEnabled = result.aiEnabled;
         _loading = false;
       });
     } catch (_) {
@@ -312,7 +310,13 @@ class _WatchingCardState extends State<_WatchingCard> {
                       style: theme.textTheme.bodySmall?.copyWith(height: 1.5),
                     )
                   else
-                    TopicChips(topics: _topics),
+                    TopicChips(
+                      topics: _topics,
+                      // "Built without an AI model" is only true when there is
+                      // no model. An org whose prompt is AI-managed but whose
+                      // labels have not been written yet gets the pending copy.
+                      emptyLabel: _aiEnabled ? null : l10n.promptScriptedNote,
+                    ),
                   const SizedBox(height: 4),
                   Align(
                     alignment: AlignmentDirectional.centerEnd,

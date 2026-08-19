@@ -59,7 +59,6 @@
   "conversationLabel": "المحادثة",
   "clientLabel": "العميل",
   "agentLabel": "الموظف",
-  "unassignedAgent": "رقم غير مُسنَد",
   "vipTag": "عميل مهم",
   "noThread": "لا توجد رسائل محفوظة لهذا التنبيه بعد.",
   "teamTitle": "فريقك",
@@ -151,5 +150,17 @@
   "refineAction": "اطلب تعديلاً",
   "refineTitle": "تعديل ما يُراقب",
   "refineOpeningLine": "ما الذي تريد تعديله في محرك الذكاء الاصطناعي؟",
-  "languageSyncFailed": "تم تغيير اللغة على هذا الجهاز، لكن تعذّر إبلاغ الخادم — قد تستمر التنبيهات بالوصول باللغة السابقة."
+  "languageSyncFailed": "تم تغيير اللغة على هذا الجهاز، لكن تعذّر إبلاغ الخادم — قد تستمر التنبيهات بالوصول باللغة السابقة.",
+  "myNumberLabel": "رقمي",
+  "slaTitle": "{agent} لم يرد على {client}",
+  "coldTitle": "{client} توقّف عن الرد مع {agent}",
+  "slaInsight": "في الانتظار منذ {waited} دقيقة — الحد المسموح {threshold} دقيقة.",
+  "coldInsight": "لا رسائل منذ {hours} ساعة.",
+  "undoAction": "تراجع",
+  "ignoreConfirmTitle": "هل أنت متأكد من التجاهل؟",
+  "ignoreConfirmBody": "سيخرج من القائمة دون أن يُحسب مُعالَجًا.",
+  "attentionGuidance": "أعد ربطه من هاتف الموظف: واتساب ← الأجهزة المرتبطة ← ربط جهاز.",
+  "boardNotMonitoredBody": "لا يوجد قياس ما دام هذا الرقم غير متصل.",
+  "themeToDark": "التبديل إلى الداكن",
+  "themeToLight": "التبديل إلى الفاتح"
 }

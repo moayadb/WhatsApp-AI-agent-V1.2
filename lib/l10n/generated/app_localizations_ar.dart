@@ -188,9 +188,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get agentLabel => 'الموظف';
 
   @override
-  String get unassignedAgent => 'رقم غير مُسنَد';
-
-  @override
   String get vipTag => 'عميل مهم';
 
   @override
@@ -489,4 +486,49 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get languageSyncFailed =>
       'تم تغيير اللغة على هذا الجهاز، لكن تعذّر إبلاغ الخادم — قد تستمر التنبيهات بالوصول باللغة السابقة.';
+
+  @override
+  String get myNumberLabel => 'رقمي';
+
+  @override
+  String slaTitle(String agent, String client) {
+    return '$agent لم يرد على $client';
+  }
+
+  @override
+  String coldTitle(String agent, String client) {
+    return '$client توقّف عن الرد مع $agent';
+  }
+
+  @override
+  String slaInsight(int waited, int threshold) {
+    return 'في الانتظار منذ $waited دقيقة — الحد المسموح $threshold دقيقة.';
+  }
+
+  @override
+  String coldInsight(int hours) {
+    return 'لا رسائل منذ $hours ساعة.';
+  }
+
+  @override
+  String get undoAction => 'تراجع';
+
+  @override
+  String get ignoreConfirmTitle => 'هل أنت متأكد من التجاهل؟';
+
+  @override
+  String get ignoreConfirmBody => 'سيخرج من القائمة دون أن يُحسب مُعالَجًا.';
+
+  @override
+  String get attentionGuidance =>
+      'أعد ربطه من هاتف الموظف: واتساب ← الأجهزة المرتبطة ← ربط جهاز.';
+
+  @override
+  String get boardNotMonitoredBody => 'لا يوجد قياس ما دام هذا الرقم غير متصل.';
+
+  @override
+  String get themeToDark => 'التبديل إلى الداكن';
+
+  @override
+  String get themeToLight => 'التبديل إلى الفاتح';
 }

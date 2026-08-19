@@ -37,10 +37,8 @@ class ApiClient {
 
   final http.Client _client;
 
-  String? _token;
-
-  String? get token => _token;
-  set token(String? value) => _token = value;
+  /// Bearer token for the current session, or null when signed out.
+  String? token;
 
   /// Called when the server rejects the session, so the app can sign out
   /// instead of leaving the user on a screen that silently fails to load.
@@ -48,7 +46,7 @@ class ApiClient {
 
   Map<String, String> get _headers => {
     'content-type': 'application/json',
-    if (_token != null) 'authorization': 'Bearer $_token',
+    if (token != null) 'authorization': 'Bearer $token',
   };
 
   Future<dynamic> get(String path, [Map<String, dynamic>? query]) =>

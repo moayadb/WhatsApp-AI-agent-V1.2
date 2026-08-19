@@ -24,6 +24,22 @@ TextDirection detectDirection(String text, {TextDirection fallback = TextDirecti
   return fallback;
 }
 
+/// Wrap a value so the surrounding sentence cannot re-order it.
+///
+/// For a whole paragraph, [AutoDirectionText] picks a direction. This is for
+/// the other case: a Latin fragment sitting inside an Arabic line — an agent
+/// called "Alex", a number like +971501234567, a pairing code. Without an
+/// isolate the bidi algorithm lets the fragment and the punctuation around it
+/// trade places, so a line ends up reading `+971501234567 :الموظف`.
+///
+/// FSI (first-strong isolate) picks the fragment's own direction; PDI closes
+/// it. Both are zero-width, so nothing changes visually when the text was
+/// already homogeneous.
+/// Written as escapes on purpose: the characters themselves are invisible and
+/// reorder the source line in an editor, which is exactly the confusion they
+/// exist to prevent elsewhere.
+String bidiIsolate(String text) => '\u2068$text\u2069';
+
 /// A [Text] whose direction (and alignment) follows the string's own script
 /// instead of the ambient layout direction. The surrounding chrome stays RTL;
 /// only content strings use this.

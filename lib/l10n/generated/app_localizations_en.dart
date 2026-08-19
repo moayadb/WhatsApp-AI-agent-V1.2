@@ -192,9 +192,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentLabel => 'Agent';
 
   @override
-  String get unassignedAgent => 'Unassigned number';
-
-  @override
   String get vipTag => 'VIP';
 
   @override
@@ -496,4 +493,51 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get languageSyncFailed =>
       'Language changed on this device, but the server could not be told — alerts may keep arriving in the previous language.';
+
+  @override
+  String get myNumberLabel => 'My number';
+
+  @override
+  String slaTitle(String agent, String client) {
+    return '$agent has not replied to $client';
+  }
+
+  @override
+  String coldTitle(String agent, String client) {
+    return '$client has gone quiet with $agent';
+  }
+
+  @override
+  String slaInsight(int waited, int threshold) {
+    return 'Waiting $waited min — threshold is $threshold min.';
+  }
+
+  @override
+  String coldInsight(int hours) {
+    return 'No messages for $hours h.';
+  }
+
+  @override
+  String get undoAction => 'Undo';
+
+  @override
+  String get ignoreConfirmTitle => 'Ignore this alert?';
+
+  @override
+  String get ignoreConfirmBody =>
+      'It leaves the list without being counted as handled.';
+
+  @override
+  String get attentionGuidance =>
+      'Reconnect it from the agent phone: WhatsApp → Linked devices → Link a device.';
+
+  @override
+  String get boardNotMonitoredBody =>
+      'Nothing is measured while this number is disconnected.';
+
+  @override
+  String get themeToDark => 'Switch to dark';
+
+  @override
+  String get themeToLight => 'Switch to light';
 }

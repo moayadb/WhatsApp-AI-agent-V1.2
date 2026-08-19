@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../l10n/labels.dart';
 import '../models/team.dart';
+import '../widgets/auto_direction_text.dart';
 import '../providers/team_provider.dart';
 
 /// Connecting a WhatsApp number — the feature this whole product rests on.
@@ -348,7 +349,12 @@ class _CodePanelState extends State<_CodePanel> {
               : () {
                   Clipboard.setData(ClipboardData(text: code));
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(code), duration: const Duration(seconds: 1)),
+                    SnackBar(
+                      // Latin code inside an Arabic toast: isolate it or the
+                      // hyphen and the digits swap ends.
+                      content: Text(bidiIsolate(code)),
+                      duration: const Duration(seconds: 1),
+                    ),
                   );
                 },
           borderRadius: BorderRadius.circular(16),

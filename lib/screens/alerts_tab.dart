@@ -8,6 +8,8 @@ import '../models/alert.dart';
 import '../providers/alerts_provider.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/alert_triage.dart';
+import '../widgets/auto_direction_text.dart';
 import '../widgets/states.dart';
 import 'alert_detail_screen.dart';
 
@@ -85,6 +87,12 @@ class _AlertsTabState extends State<AlertsTab> {
   }
 }
 
+/// The three views of the feed.
+///
+/// A [Wrap] rather than a fixed-height horizontal list: "يحتاج تدخّلك" is taller
+/// than the Latin label it was sized for, and 52 logical pixels cut the
+/// descenders off mid-letter. Chips now take the height their text needs and
+/// wrap to a second line rather than scrolling out of reach.
 class _FilterBar extends StatelessWidget {
   const _FilterBar({required this.selected, required this.onSelected});
 
@@ -95,29 +103,31 @@ class _FilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return SizedBox(
-      height: 52,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
         children: [
-          _chip(l10n.filterOpen, AlertStatus.isNew),
-          const SizedBox(width: 8),
-          _chip(l10n.filterDone, AlertStatus.done),
-          const SizedBox(width: 8),
-          _chip(l10n.filterAll, null),
+          _chip(context, l10n.filterOpen, AlertStatus.isNew),
+          _chip(context, l10n.filterDone, AlertStatus.done),
+          _chip(context, l10n.filterAll, null),
         ],
       ),
     );
   }
 
-  Widget _chip(String label, AlertStatus? value) => Builder(
-    builder: (context) => FilterChip(
-      label: Text(label),
-      selected: selected == value,
-      onSelected: (_) => onSelected(value),
-    ),
-  );
+  Widget _chip(BuildContext context, String label, AlertStatus? value) =>
+      FilterChip(
+        label: Text(label),
+        selected: selected == value,
+        onSelected: (_) => onSelected(value),
+        // Let the label decide the size; the default dense tap target clips
+        // Arabic ascenders.
+        materialTapTargetSize: MaterialTapTargetSize.padded,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+      );
 }
 
 class AlertCard extends StatelessWidget {
@@ -130,9 +140,15 @@ class AlertCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final locale = Localizations.localeOf(context).languageCode;
-    final typeColor = AppColors.alertType(alert.type);
+    final handled = alert.status != AlertStatus.isNew;
+    // A handled row in the "All" view has to be legible as handled at a
+    // glance, or the list reads as a backlog that never shrinks. Muted, not
+    // hidden: it is still evidence of what was dealt with.
+    final typeColor = handled
+        ? theme.colorScheme.onSurfaceVariant
+        : AppColors.alertType(alert.type);
 
-    return Card(
+    final card = Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -204,7 +220,7 @@ class AlertCard extends StatelessWidget {
                   const SizedBox(width: 4),
                   Flexible(
                     child: Text(
-                      alert.agentName ?? l10n.unassignedAgent,
+                      bidiIsolate(l10n.alertAgent(alert)),
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelMedium?.copyWith(
                         fontWeight: FontWeight.w600,
@@ -220,7 +236,7 @@ class AlertCard extends StatelessWidget {
                   const SizedBox(width: 4),
                   Flexible(
                     child: Text(
-                      alert.clientLabel,
+                      bidiIsolate(alert.clientLabel),
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelMedium,
                     ),
@@ -229,28 +245,31 @@ class AlertCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
 
-              if (alert.insight != null)
-                Text(
-                  alert.insight!,
-                  style: theme.textTheme.bodyMedium,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                )
-              else
-                Text(alert.title, style: theme.textTheme.bodyMedium),
+              // Timer alerts are rebuilt locally so they follow the app's
+              // language rather than the language they were written in.
+              AutoDirectionText(
+                l10n.alertInsight(alert) ?? l10n.alertTitle(alert),
+                style: theme.textTheme.bodyMedium,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
 
-              if (alert.status == AlertStatus.isNew) ...[
-                const SizedBox(height: 8),
-                Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: TextButton.icon(
-                    onPressed: () => context.read<AlertsProvider>().setStatus(
-                      alert.id,
-                      AlertStatus.done,
+              if (!handled) ...[
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => AlertTriage.ignore(context, alert.id),
+                      child: Text(l10n.markIgnored),
                     ),
-                    icon: const Icon(Icons.check, size: 18),
-                    label: Text(l10n.markDone),
-                  ),
+                    const SizedBox(width: 4),
+                    TextButton.icon(
+                      onPressed: () => AlertTriage.markDone(context, alert.id),
+                      icon: const Icon(Icons.check, size: 18),
+                      label: Text(l10n.markDone),
+                    ),
+                  ],
                 ),
               ],
             ],
@@ -258,5 +277,11 @@ class AlertCard extends StatelessWidget {
         ),
       ),
     );
+
+    if (!handled) return card;
+
+    // One dimming pass over the whole card, so nothing has to remember to be
+    // muted individually.
+    return Opacity(opacity: 0.55, child: card);
   }
 }

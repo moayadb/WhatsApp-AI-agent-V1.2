@@ -345,6 +345,71 @@ async function n8nTurn(
 }
 
 /**
+ * Ask the workflow to describe an existing prompt in a few labels.
+ *
+ * Contract 6, `mode: "topics"`. Used for prompt changes that happen outside a
+ * conversation — a manual PATCH, the backfill — where there is no interview
+ * turn to produce topics as a side effect. Returns `[]` on any failure, which
+ * the caller must read as "keep what you had", never as "no topics".
+ */
+export async function topicsForPrompt(
+  prompt: string,
+  locale: string,
+): Promise<string[]> {
+  if (env.n8nIntakeUrl) {
+    try {
+      const response = await fetch(env.n8nIntakeUrl, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-sanayed-secret': env.n8nSecret,
+        },
+        body: JSON.stringify({
+          locale,
+          transcript: [],
+          mode: 'topics',
+          current_prompt: prompt,
+        }),
+        signal: AbortSignal.timeout(45_000),
+      });
+      if (!response.ok) throw new LlmUnavailable(`n8n topics ${response.status}`);
+      // A rejected secret answers 200 with an empty body, so an unparseable
+      // response is a failure however encouraging the status code looks.
+      const raw = (await response.json()) as RawIntake;
+      const topics = sanitizeTopics(raw.topics);
+      if (topics.length > 0) return topics;
+      logger.warn('n8n returned no topics; trying direct LLM');
+    } catch (error) {
+      logger.warn({ err: error }, 'n8n topics unavailable; trying direct LLM');
+    }
+  }
+
+  if (!llmConfigured()) return [];
+
+  const language = LANGUAGE_NAME[locale] ?? 'Arabic';
+  try {
+    const raw = await chatJson<{ topics?: unknown }>([
+      {
+        role: 'system',
+        content: `Below is the monitoring prompt an AI agent uses to decide when a sales
+manager must step into a WhatsApp conversation. Name what it watches for.
+
+Return 3 to 6 labels in ${language}, two to four words each, no sentences and
+no punctuation. Cover the prompt's alert rules honestly — if a rule exists, a
+label names it. Describe only what is in the prompt; invent nothing.
+
+RESPOND ONLY WITH JSON: { "topics": ["…"] }`,
+      },
+      { role: 'user', content: prompt },
+    ]);
+    return sanitizeTopics(raw.topics);
+  } catch (error) {
+    logger.warn({ err: error }, 'topics generation failed; keeping previous');
+    return [];
+  }
+}
+
+/**
  * Refinement of an existing prompt from a chat request.
  *
  * Used both mid-conversation (right after the interview finished, while the

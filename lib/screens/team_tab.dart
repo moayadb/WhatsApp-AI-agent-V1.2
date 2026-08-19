@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,6 +8,7 @@ import '../l10n/labels.dart';
 import '../models/team.dart';
 import '../providers/team_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/auto_direction_text.dart';
 import '../widgets/states.dart';
 import 'link_number_sheet.dart';
 
@@ -19,11 +22,51 @@ class TeamTab extends StatefulWidget {
 }
 
 class _TeamTabState extends State<TeamTab> {
+  final _scroll = ScrollController();
+
+  /// One key per channel tile, so the banner can scroll to the number it is
+  /// complaining about instead of leaving the manager to find it.
+  final Map<String, GlobalKey> _channelKeys = {};
+
+  /// The tile currently glowing after a jump. Cleared on a timer — a permanent
+  /// highlight stops meaning anything.
+  String? _highlighted;
+  Timer? _highlightTimer;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TeamProvider>().load();
+    });
+  }
+
+  @override
+  void dispose() {
+    _highlightTimer?.cancel();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  GlobalKey _keyFor(String channelId) =>
+      _channelKeys.putIfAbsent(channelId, GlobalKey.new);
+
+  /// Take the manager to the broken number and mark it.
+  Future<void> _reveal(Channel channel) async {
+    final target = _channelKeys[channel.id]?.currentContext;
+    if (target != null) {
+      await Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOut,
+        alignment: 0.25,
+      );
+    }
+    if (!mounted) return;
+    setState(() => _highlighted = channel.id);
+    _highlightTimer?.cancel();
+    _highlightTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _highlighted = null);
     });
   }
 
@@ -78,10 +121,23 @@ class _TeamTabState extends State<TeamTab> {
         child: team.loading && team.agents.isEmpty
             ? const SkeletonList()
             : ListView(
+                controller: _scroll,
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
                 children: [
                   if (team.needsAttention.isNotEmpty)
-                    _AttentionBanner(count: team.needsAttention.length),
+                    _AttentionBanner(
+                      count: team.needsAttention.length,
+                      onReveal: () => _reveal(team.needsAttention.first),
+                      onReconnect: () {
+                        final broken = team.needsAttention.first;
+                        LinkNumberSheet.show(
+                          context,
+                          agentId: broken.agentId,
+                          agentName: broken.agentName,
+                          phone: broken.phone,
+                        );
+                      },
+                    ),
 
                   // The manager's own number first — it is usually the first
                   // one he links, before he has added anybody.
@@ -98,7 +154,13 @@ class _TeamTabState extends State<TeamTab> {
                       onTap: () => LinkNumberSheet.show(context),
                     )
                   else
-                    ...ownNumbers.map((c) => _ChannelTile(channel: c)),
+                    ...ownNumbers.map(
+                      (c) => _ChannelTile(
+                        key: _keyFor(c.id),
+                        channel: c,
+                        highlighted: _highlighted == c.id,
+                      ),
+                    ),
 
                   const SizedBox(height: 24),
                   Row(
@@ -127,7 +189,13 @@ class _TeamTabState extends State<TeamTab> {
                       body: l10n.noAgentsBody,
                     )
                   else
-                    ...team.agents.map((agent) => _AgentCard(agent: agent)),
+                    ...team.agents.map(
+                      (agent) => _AgentCard(
+                        agent: agent,
+                        keyFor: _keyFor,
+                        highlighted: _highlighted,
+                      ),
+                    ),
                 ],
               ),
       ),
@@ -135,46 +203,95 @@ class _TeamTabState extends State<TeamTab> {
   }
 }
 
+/// A number stopped being watched.
+///
+/// This is the worst state the product can be in — conversations are happening
+/// and nothing is reading them — so the banner does more than announce it:
+/// tapping it jumps to the number in question, and the button starts the
+/// reconnect. The line underneath says what actually has to happen, on which
+/// phone, because "reconnect" means nothing until you know it is done from the
+/// agent's handset and not from here.
 class _AttentionBanner extends StatelessWidget {
-  const _AttentionBanner({required this.count});
+  const _AttentionBanner({
+    required this.count,
+    required this.onReveal,
+    required this.onReconnect,
+  });
 
   final int count;
+  final VoidCallback onReveal;
+  final VoidCallback onReconnect;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
+    final onError = theme.colorScheme.onErrorContainer;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: theme.colorScheme.errorContainer,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
-        children: [
-          Icon(Icons.link_off, color: theme.colorScheme.onErrorContainer),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              l10n.needsAttentionBanner(count),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onErrorContainer,
-                fontWeight: FontWeight.w600,
+      child: InkWell(
+        onTap: onReveal,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.link_off, color: onError),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      l10n.needsAttentionBanner(count),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: onError,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 36),
+                child: Text(
+                  l10n.attentionGuidance,
+                  style: theme.textTheme.bodySmall?.copyWith(color: onError),
+                ),
+              ),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: TextButton.icon(
+                  onPressed: onReconnect,
+                  icon: const Icon(Icons.link, size: 18),
+                  label: Text(l10n.reconnectAction),
+                  style: TextButton.styleFrom(foregroundColor: onError),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
 class _AgentCard extends StatelessWidget {
-  const _AgentCard({required this.agent});
+  const _AgentCard({
+    required this.agent,
+    required this.keyFor,
+    required this.highlighted,
+  });
 
   final Agent agent;
+  final GlobalKey Function(String channelId) keyFor;
+  final String? highlighted;
 
   @override
   Widget build(BuildContext context) {
@@ -232,7 +349,14 @@ class _AgentCard extends StatelessWidget {
             ...agent.channels.map(
               (channel) => Padding(
                 padding: const EdgeInsetsDirectional.only(start: 46, top: 6),
-                child: _ChannelTile(channel: channel, dense: true),
+                child: _ChannelTile(
+                  key: keyFor(channel.id),
+                  channel: channel,
+                  dense: true,
+                  highlighted: highlighted == channel.id,
+                  // The card already says whose number this is.
+                  agentName: agent.name,
+                ),
               ),
             ),
           ],
@@ -243,10 +367,34 @@ class _AgentCard extends StatelessWidget {
 }
 
 class _ChannelTile extends StatelessWidget {
-  const _ChannelTile({required this.channel, this.dense = false});
+  const _ChannelTile({
+    super.key,
+    required this.channel,
+    this.dense = false,
+    this.highlighted = false,
+    this.agentName,
+  });
 
   final Channel channel;
   final bool dense;
+
+  /// Briefly marked after the banner jumped here.
+  final bool highlighted;
+
+  /// The name shown above this tile, if any. A channel whose label is just the
+  /// agent's name printed it a second line below the same name, which read as
+  /// a rendering bug.
+  final String? agentName;
+
+  /// What identifies this number to a person: the number itself, or the label
+  /// if it carries information the surrounding card does not already show.
+  String? get _identity {
+    if (channel.phone != null) return channel.phone;
+    final label = channel.label;
+    if (label == null || label.trim().isEmpty) return null;
+    if (label.trim() == (agentName ?? channel.agentName)?.trim()) return null;
+    return label;
+  }
 
   Color _statusColor(ColorScheme scheme) {
     if (channel.status.isLive) return AppColors.emerald;
@@ -261,6 +409,8 @@ class _ChannelTile extends StatelessWidget {
     final team = context.read<TeamProvider>();
     final color = _statusColor(theme.colorScheme);
 
+    final identity = _identity;
+
     final row = Row(
       children: [
         Container(
@@ -273,16 +423,23 @@ class _ChannelTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                channel.phone ?? channel.label ?? '—',
-                textDirection: TextDirection.ltr,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+              if (identity != null)
+                Text(
+                  // A phone number is Latin digits inside an Arabic layout;
+                  // isolating it stops the leading + jumping to the far end.
+                  bidiIsolate(identity),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
               Text(
                 l10n.channelStatus(channel.status),
-                style: theme.textTheme.labelSmall?.copyWith(color: color),
+                style: identity == null
+                    ? theme.textTheme.bodyMedium?.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.w600,
+                      )
+                    : theme.textTheme.labelSmall?.copyWith(color: color),
               ),
             ],
           ),
@@ -312,13 +469,25 @@ class _ChannelTile extends StatelessWidget {
       ],
     );
 
-    if (dense) return row;
+    final content = AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: highlighted
+            ? theme.colorScheme.errorContainer.withValues(alpha: 0.55)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: row,
+    );
+
+    if (dense) return content;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 6, 4, 6),
-        child: row,
+        padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
+        child: content,
       ),
     );
   }

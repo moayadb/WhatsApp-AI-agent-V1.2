@@ -175,8 +175,8 @@ class AnalyzerApi {
   }) async {
     final json = await client.post('/channels', {
       'method': method.wire,
-      if (phone != null) 'phone_e164': phone,
-      if (agentId != null) 'agent_id': agentId,
+      'phone_e164': ?phone,
+      'agent_id': ?agentId,
       if (label != null && label.isNotEmpty) 'label': label,
       if (consentName != null && consentName.isNotEmpty)
         'consent_name': consentName,
@@ -197,7 +197,7 @@ class AnalyzerApi {
   Future<LinkState> relink(String channelId, LinkMethod method, [String? phone]) async {
     final json = await client.post('/channels/$channelId/relink', {
       'method': method.wire,
-      if (phone != null) 'phone_e164': phone,
+      'phone_e164': ?phone,
     });
     return LinkState.fromJson(Map<String, dynamic>.from(json));
   }
@@ -219,7 +219,7 @@ class AnalyzerApi {
     final json = await client.get('/alerts', {
       if (status != null) 'status': status.wire,
       if (type != null) 'type': _typeWire(type),
-      if (agentId != null) 'agent_id': agentId,
+      'agent_id': ?agentId,
       'limit': limit,
     }) as List;
     return json.map((e) => Alert.fromJson(Map<String, dynamic>.from(e))).toList();

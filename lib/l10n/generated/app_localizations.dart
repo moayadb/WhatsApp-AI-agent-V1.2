@@ -452,12 +452,6 @@ abstract class AppLocalizations {
   /// **'Agent'**
   String get agentLabel;
 
-  /// No description provided for @unassignedAgent.
-  ///
-  /// In en, this message translates to:
-  /// **'Unassigned number'**
-  String get unassignedAgent;
-
   /// No description provided for @vipTag.
   ///
   /// In en, this message translates to:
@@ -1009,6 +1003,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Language changed on this device, but the server could not be told — alerts may keep arriving in the previous language.'**
   String get languageSyncFailed;
+
+  /// No description provided for @myNumberLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'My number'**
+  String get myNumberLabel;
+
+  /// No description provided for @slaTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{agent} has not replied to {client}'**
+  String slaTitle(String agent, String client);
+
+  /// No description provided for @coldTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{client} has gone quiet with {agent}'**
+  String coldTitle(String agent, String client);
+
+  /// No description provided for @slaInsight.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting {waited} min — threshold is {threshold} min.'**
+  String slaInsight(int waited, int threshold);
+
+  /// No description provided for @coldInsight.
+  ///
+  /// In en, this message translates to:
+  /// **'No messages for {hours} h.'**
+  String coldInsight(int hours);
+
+  /// No description provided for @undoAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get undoAction;
+
+  /// No description provided for @ignoreConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignore this alert?'**
+  String get ignoreConfirmTitle;
+
+  /// No description provided for @ignoreConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'It leaves the list without being counted as handled.'**
+  String get ignoreConfirmBody;
+
+  /// No description provided for @attentionGuidance.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect it from the agent phone: WhatsApp → Linked devices → Link a device.'**
+  String get attentionGuidance;
+
+  /// No description provided for @boardNotMonitoredBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing is measured while this number is disconnected.'**
+  String get boardNotMonitoredBody;
+
+  /// No description provided for @themeToDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to dark'**
+  String get themeToDark;
+
+  /// No description provided for @themeToLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to light'**
+  String get themeToLight;
 }
 
 class _AppLocalizationsDelegate

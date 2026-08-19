@@ -5,7 +5,9 @@ import '../l10n/generated/app_localizations.dart';
 import '../models/team.dart';
 import '../providers/dashboard_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/auto_direction_text.dart';
 import '../widgets/states.dart';
+import 'link_number_sheet.dart';
 
 /// The board that answers "did you follow up?" before the Sunday meeting does.
 ///
@@ -159,7 +161,7 @@ class _AgentRow extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    agent.name,
+                    bidiIsolate(agent.name),
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -167,7 +169,7 @@ class _AgentRow extends StatelessWidget {
                 ),
                 // An agent whose number dropped scores perfectly on every
                 // other column, which is exactly why this has to be loud.
-                if (agent.linkedNumbers > 0 && !agent.isMonitored)
+                if (!agent.isMonitored)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -187,33 +189,65 @@ class _AgentRow extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                _Metric(
-                  label: l10n.colWaiting,
-                  value: '${agent.waitingNow}',
-                  color: waiting ? AppColors.priorityUrgent : null,
-                ),
-                _Metric(
-                  label: l10n.colLongest,
-                  value: agent.longestWaitMinutes == null
-                      ? '—'
-                      : l10n.minutesShort(agent.longestWaitMinutes!),
-                ),
-                _Metric(
-                  label: l10n.colBreaches,
-                  value: '${agent.slaBreaches}',
-                ),
-                _Metric(label: l10n.colCold, value: '${agent.coldLeads}'),
-                _Metric(
-                  label: l10n.colConduct,
-                  value: '${agent.conductFlags}',
-                  color: agent.conductFlags > 0
-                      ? AppColors.priorityHigh
-                      : null,
-                ),
-              ],
-            ),
+
+            // Zeros across the board are indistinguishable from a flawless
+            // week, and this agent has not been measured at all. Saying so is
+            // the whole point of the row.
+            if (!agent.isMonitored)
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.boardNotMonitoredBody,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: () => LinkNumberSheet.show(
+                      context,
+                      agentId: agent.id,
+                      agentName: agent.name,
+                    ),
+                    icon: const Icon(Icons.add_link, size: 18),
+                    label: Text(
+                      agent.linkedNumbers > 0
+                          ? l10n.reconnectAction
+                          : l10n.linkNumber,
+                    ),
+                  ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  _Metric(
+                    label: l10n.colWaiting,
+                    value: '${agent.waitingNow}',
+                    color: waiting ? AppColors.priorityUrgent : null,
+                  ),
+                  _Metric(
+                    label: l10n.colLongest,
+                    value: agent.longestWaitMinutes == null
+                        ? '—'
+                        : l10n.minutesShort(agent.longestWaitMinutes!),
+                  ),
+                  _Metric(
+                    label: l10n.colBreaches,
+                    value: '${agent.slaBreaches}',
+                  ),
+                  _Metric(label: l10n.colCold, value: '${agent.coldLeads}'),
+                  _Metric(
+                    label: l10n.colConduct,
+                    value: '${agent.conductFlags}',
+                    color: agent.conductFlags > 0
+                        ? AppColors.priorityHigh
+                        : null,
+                  ),
+                ],
+              ),
           ],
         ),
       ),

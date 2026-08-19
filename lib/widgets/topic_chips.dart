@@ -14,9 +14,15 @@ import 'auto_direction_text.dart';
 /// The labels come from the model in whatever language the manager used, which
 /// need not be the app's language — hence per-chip direction detection.
 class TopicChips extends StatelessWidget {
-  const TopicChips({super.key, required this.topics});
+  const TopicChips({super.key, required this.topics, this.emptyLabel});
 
   final List<String> topics;
+
+  /// What to say when there are no topics. Defaults to "still being written",
+  /// which is true when a model is configured; an org with no model gets the
+  /// scripted-prompt note instead. Those two were being confused, and a
+  /// customer with a perfectly good AI prompt was told he had no AI.
+  final String? emptyLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +34,7 @@ class TopicChips extends StatelessWidget {
     // an empty box that reads as "watching nothing".
     if (topics.isEmpty) {
       return Text(
-        l10n.topicsPending,
+        emptyLabel ?? l10n.topicsPending,
         style: theme.textTheme.bodySmall?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
         ),

@@ -53,6 +53,16 @@ abstract final class AppColors {
 }
 
 abstract final class AppTheme {
+  /// Arabic-first, and the same family for Latin.
+  ///
+  /// The default Roboto/Noto pairing renders Arabic in a fallback face with
+  /// different proportions, so a card holding "أحمد" and "+971501234567" looked
+  /// like two products. IBM Plex Sans Arabic covers both scripts, and is
+  /// bundled rather than fetched so nothing reflows on a slow connection.
+  static const fontFamily = 'IBMPlexSansArabic';
+
+  static const _fallback = ['Roboto', 'Segoe UI', 'Arial'];
+
   static ThemeData light() => _build(Brightness.light);
   static ThemeData dark() => _build(Brightness.dark);
 
@@ -66,7 +76,13 @@ abstract final class AppTheme {
       primary: isDark ? AppColors.emeraldDark : AppColors.emerald,
     );
 
-    final base = ThemeData(useMaterial3: true, colorScheme: scheme, brightness: brightness);
+    final base = ThemeData(
+      useMaterial3: true,
+      colorScheme: scheme,
+      brightness: brightness,
+      fontFamily: fontFamily,
+      fontFamilyFallback: _fallback,
+    );
 
     final hairline = isDark ? const Color(0xFF2A322E) : const Color(0xFFE7E5E0);
 
@@ -111,7 +127,12 @@ abstract final class AppTheme {
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(48),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle: const TextStyle(fontWeight: FontWeight.w600),
+          // From the text theme, not a bare TextStyle: `styleFrom` does not
+          // inherit the family, so a literal here silently fell back to the
+          // platform font on buttons only.
+          textStyle: base.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(

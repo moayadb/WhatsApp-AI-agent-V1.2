@@ -97,6 +97,31 @@ class AlertsProvider extends ChangeNotifier {
     }
   }
 
+  /// Undo a triage decision, including one that removed the row.
+  ///
+  /// [setStatus] can only edit a row it can still see, and marking something
+  /// handled under the "needs action" filter takes it straight out of the
+  /// list — which is exactly when the manager reaches for undo. So this one
+  /// works from the id alone and puts the row back where it belongs.
+  Future<bool> undoStatus(String id) async {
+    try {
+      final restored = await _api.setAlertStatus(id, AlertStatus.isNew);
+      _alerts = _alerts.where((a) => a.id != id).toList();
+      if (_matchesFilters(restored)) {
+        // The server orders by event_at descending; keep that, or an undone
+        // alert jumps to the top and reads as something new.
+        _alerts = [..._alerts, restored]
+          ..sort((a, b) => b.eventAt.compareTo(a.eventAt));
+      }
+      notifyListeners();
+      return true;
+    } on ApiException catch (error) {
+      _errorCode = error.code;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<Alert?> detail(String id) async {
     try {
       return await _api.alert(id);

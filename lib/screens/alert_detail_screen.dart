@@ -7,6 +7,8 @@ import '../l10n/labels.dart';
 import '../models/alert.dart';
 import '../providers/alerts_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/alert_triage.dart';
+import '../widgets/auto_direction_text.dart';
 
 /// The alert, plus the conversation that produced it.
 ///
@@ -40,8 +42,21 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
     });
   }
 
-  Future<void> _setStatus(AlertStatus status) async {
-    await context.read<AlertsProvider>().setStatus(widget.alertId, status);
+  /// Triage from the detail screen behaves exactly as it does in the feed —
+  /// instant with an undo for "handled", a confirmation for "ignore" — and
+  /// only leaves the screen once the decision actually took.
+  Future<void> _handle() async {
+    final done = await AlertTriage.markDone(context, widget.alertId);
+    if (done && mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _ignore() async {
+    final ignored = await AlertTriage.ignore(context, widget.alertId);
+    if (ignored && mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _reopen() async {
+    await context.read<AlertsProvider>().undoStatus(widget.alertId);
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -82,8 +97,8 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                Text(
-                  alert.title,
+                AutoDirectionText(
+                  l10n.alertTitle(alert),
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -100,7 +115,7 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
                 _Row(
                   icon: Icons.person_outline,
                   label: l10n.agentLabel,
-                  value: alert.agentName ?? l10n.unassignedAgent,
+                  value: l10n.alertAgent(alert),
                 ),
                 _Row(
                   icon: Icons.chat_bubble_outline,
@@ -109,15 +124,15 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                if (alert.insight != null) ...[
+                if (l10n.alertInsight(alert) != null) ...[
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
-                      alert.insight!,
+                    child: AutoDirectionText(
+                      l10n.alertInsight(alert)!,
                       style: theme.textTheme.bodyLarge,
                     ),
                   ),
@@ -132,7 +147,7 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
+                  AutoDirectionText(
                     alert.recommendedAction!,
                     style: theme.textTheme.bodyMedium,
                   ),
@@ -161,7 +176,7 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => _setStatus(AlertStatus.ignored),
+                        onPressed: _ignore,
                         child: Text(l10n.markIgnored),
                       ),
                     ),
@@ -169,11 +184,8 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
                     Expanded(
                       flex: 2,
                       child: FilledButton.icon(
-                        onPressed: () => _setStatus(
-                          alert.status == AlertStatus.isNew
-                              ? AlertStatus.done
-                              : AlertStatus.isNew,
-                        ),
+                        onPressed:
+                            alert.status == AlertStatus.isNew ? _handle : _reopen,
                         icon: const Icon(Icons.check),
                         label: Text(
                           alert.status == AlertStatus.isNew
@@ -237,7 +249,7 @@ class _Row extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              value,
+              bidiIsolate(value),
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -273,9 +285,18 @@ class _Message extends StatelessWidget {
               : theme.colorScheme.primaryContainer,
           borderRadius: BorderRadius.circular(14),
         ),
-        child: Text(
-          message.body ?? '[${message.mediaType ?? 'media'}]',
-          style: theme.textTheme.bodyMedium,
+        child: Builder(
+          builder: (context) {
+            final text = message.body ?? '[${message.mediaType ?? 'media'}]';
+            return Text(
+              text,
+              style: theme.textTheme.bodyMedium,
+              textDirection: detectDirection(
+                text,
+                fallback: Directionality.of(context),
+              ),
+            );
+          },
         ),
       ),
     );

@@ -77,6 +77,21 @@ flutter:
   assets:
     - assets/sounds/
 
+  # Arabic-first typography. Bundled, never fetched: the app is used in the
+  # field on hotel wifi and a font that arrives late reflows the whole screen.
+  # IBM Plex Sans Arabic carries Latin in the same family, so a mixed
+  # "أحمد · +971…" line stays one typeface instead of two. OFL, assets/fonts/OFL.txt.
+  fonts:
+    - family: IBMPlexSansArabic
+      fonts:
+        - asset: assets/fonts/IBMPlexSansArabic-Regular.ttf
+        - asset: assets/fonts/IBMPlexSansArabic-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/IBMPlexSansArabic-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/IBMPlexSansArabic-Bold.ttf
+          weight: 700
+
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.

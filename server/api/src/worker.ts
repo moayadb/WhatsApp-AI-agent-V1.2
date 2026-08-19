@@ -21,6 +21,68 @@ function slaSeverity(waitedMinutes: number, threshold: number): Severity {
   return 'high';
 }
 
+/**
+ * Alert copy, per language.
+ *
+ * These two detectors are the only alerts written without a model, so they are
+ * also the only ones that used to arrive in English regardless of who was
+ * reading them. `orgs.locale` is the manager's language and this is what the
+ * push notification carries — the one place he reads an alert without the app
+ * having a chance to re-render it.
+ *
+ * The app itself rebuilds these lines from `evidence` in whatever language it
+ * is currently showing, so a locale changed after the fact does not leave a
+ * stale sentence on screen. This text is the notification, and the fallback.
+ */
+interface SlaCopy {
+  title: (agent: string, client: string) => string;
+  insight: (waited: number, threshold: number) => string;
+  action: string;
+}
+
+interface ColdCopy {
+  title: (agent: string, client: string) => string;
+  insight: (idleHours: number) => string;
+  action: string;
+}
+
+const SLA_COPY: Record<string, SlaCopy> = {
+  en: {
+    title: (agent, client) => `${agent} has not replied to ${client}`,
+    insight: (waited, threshold) =>
+      `Waiting ${waited} min — threshold is ${threshold} min.`,
+    action: 'Reassign or reply on behalf of the agent.',
+  },
+  ar: {
+    title: (agent, client) => `${agent} لم يرد على ${client}`,
+    insight: (waited, threshold) =>
+      `في الانتظار منذ ${waited} دقيقة — الحد المسموح ${threshold} دقيقة.`,
+    action: 'أعد إسناد المحادثة أو رُدّ نيابةً عن الموظف.',
+  },
+};
+
+const COLD_COPY: Record<string, ColdCopy> = {
+  en: {
+    title: (agent, client) => `${client} has gone quiet with ${agent}`,
+    insight: (idleHours) => `No messages for ${idleHours} h.`,
+    action: 'Ask the agent for a follow-up plan.',
+  },
+  ar: {
+    title: (agent, client) => `${client} توقّف عن الرد مع ${agent}`,
+    insight: (idleHours) => `لا رسائل منذ ${idleHours} ساعة.`,
+    action: 'اطلب من الموظف خطة متابعة.',
+  },
+};
+
+/** A channel with no agent is the manager's own number, not a stray one. */
+const OWN_NUMBER: Record<string, string> = { en: 'My number', ar: 'رقمي' };
+
+const CLIENT_FALLBACK: Record<string, string> = { en: 'Client', ar: 'عميل' };
+
+function copyFor<T>(table: Record<string, T>, locale: string | null): T {
+  return table[locale ?? 'ar'] ?? table.ar;
+}
+
 async function sweepUnanswered(): Promise<void> {
   const rows = await many<{
     conversation_id: string;
@@ -35,6 +97,7 @@ async function sweepUnanswered(): Promise<void> {
     contact_name: string | null;
     contact_phone: string | null;
     is_vip: boolean;
+    locale: string | null;
   }>(
     `SELECT cv.id AS conversation_id, cv.org_id, cv.channel_id, cv.agent_id,
             cv.contact_id, cv.awaiting_reply_since,
@@ -44,9 +107,10 @@ async function sweepUnanswered(): Promise<void> {
                  ELSE COALESCE(s.first_response_minutes, 15) END AS threshold,
             ag.name AS agent_name,
             ct.display_name AS contact_name, ct.phone_e164 AS contact_phone,
-            ct.is_vip
+            ct.is_vip, o.locale
        FROM conversations cv
        JOIN contacts ct ON ct.id = cv.contact_id
+       JOIN orgs o ON o.id = cv.org_id
        LEFT JOIN agents ag ON ag.id = cv.agent_id
        LEFT JOIN org_settings s ON s.org_id = cv.org_id
       WHERE cv.awaiting_reply_since IS NOT NULL
@@ -62,8 +126,10 @@ async function sweepUnanswered(): Promise<void> {
 
   for (const row of rows) {
     const waited = Math.round(Number(row.waited_minutes));
-    const who = row.contact_name ?? row.contact_phone ?? 'Client';
-    const agent = row.agent_name ?? 'Unassigned number';
+    const copy = copyFor(SLA_COPY, row.locale);
+    const who =
+      row.contact_name ?? row.contact_phone ?? copyFor(CLIENT_FALLBACK, row.locale);
+    const agent = row.agent_name ?? copyFor(OWN_NUMBER, row.locale);
 
     const alert = await createAlert({
       orgId: row.org_id,
@@ -73,11 +139,11 @@ async function sweepUnanswered(): Promise<void> {
       contactId: row.contact_id,
       type: 'sla_breach',
       severity: slaSeverity(waited, Number(row.threshold)),
-      // Client-side copy is localised from `type` + `evidence`; this English
-      // line is the fallback that also lands in the push notification.
-      title: `${agent} has not replied to ${who}`,
-      insight: `Waiting ${waited} min — threshold is ${row.threshold} min.`,
-      recommendedAction: 'Reassign or reply on behalf of the agent.',
+      // The app re-renders this from `evidence` in its own language; this text
+      // is what the push notification carries, so it follows `orgs.locale`.
+      title: copy.title(agent, who),
+      insight: copy.insight(waited, Number(row.threshold)),
+      recommendedAction: copy.action,
       evidence: {
         waited_minutes: waited,
         threshold_minutes: Number(row.threshold),
@@ -117,15 +183,18 @@ async function sweepColdLeads(): Promise<void> {
     agent_name: string | null;
     contact_name: string | null;
     contact_phone: string | null;
+    locale: string | null;
   }>(
     `SELECT cv.id AS conversation_id, cv.org_id, cv.channel_id, cv.agent_id,
             cv.contact_id, cv.last_message_at,
             EXTRACT(EPOCH FROM (now() - cv.last_message_at)) / 3600 AS idle_hours,
             COALESCE(s.cold_lead_hours, 48) AS threshold,
             ag.name AS agent_name,
-            ct.display_name AS contact_name, ct.phone_e164 AS contact_phone
+            ct.display_name AS contact_name, ct.phone_e164 AS contact_phone,
+            o.locale
        FROM conversations cv
        JOIN contacts ct ON ct.id = cv.contact_id
+       JOIN orgs o ON o.id = cv.org_id
        LEFT JOIN agents ag ON ag.id = cv.agent_id
        LEFT JOIN org_settings s ON s.org_id = cv.org_id
       WHERE cv.cold_alerted_at IS NULL
@@ -139,8 +208,10 @@ async function sweepColdLeads(): Promise<void> {
 
   for (const row of rows) {
     const idle = Math.round(Number(row.idle_hours));
-    const who = row.contact_name ?? row.contact_phone ?? 'Client';
-    const agent = row.agent_name ?? 'Unassigned number';
+    const copy = copyFor(COLD_COPY, row.locale);
+    const who =
+      row.contact_name ?? row.contact_phone ?? copyFor(CLIENT_FALLBACK, row.locale);
+    const agent = row.agent_name ?? copyFor(OWN_NUMBER, row.locale);
 
     await createAlert({
       orgId: row.org_id,
@@ -152,9 +223,9 @@ async function sweepColdLeads(): Promise<void> {
       // Not urgent by design: a cold lead is a Monday problem, and treating it
       // as an emergency is how a notification feed becomes noise.
       severity: 'medium',
-      title: `${who} has gone quiet with ${agent}`,
-      insight: `No messages for ${idle} h.`,
-      recommendedAction: 'Ask the agent for a follow-up plan.',
+      title: copy.title(agent, who),
+      insight: copy.insight(idle),
+      recommendedAction: copy.action,
       evidence: { idle_hours: idle, threshold_hours: Number(row.threshold) },
       eventAt: row.last_message_at,
       dedupeKey: `cold:${row.conversation_id}:${row.last_message_at.toISOString()}`,
