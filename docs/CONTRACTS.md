@@ -137,7 +137,7 @@ Request:
 {
   "locale": "ar|en",
   "transcript": [ { "role": "assistant|user", "text": "string" } ],
-  "mode": "interview|refine",
+  "mode": "interview|refine|topics",
   "current_prompt": "string|null"      // the prompt being edited, in refine mode
 }
 ```
@@ -155,7 +155,15 @@ Response:
 ```
 
 `topics` is what the **app shows**; `generated_prompt` is stored but never
-displayed to the user. Both are regenerated whenever the prompt changes.
+displayed to the user.
+
+**Invariant: every write to `generated_prompt` regenerates `prompt_topics`.**
+The API enforces this in one place — callers must not be able to skip it.
+For prompt changes that happen outside a conversation (manual PATCH, backfill),
+the API calls the workflow with `mode: "topics"` + `current_prompt` and gets
+back `{ "topics": [...] }` only; `reply`/`done`/`generated_prompt` are ignored
+in that mode. If topics generation fails, keep the previous topics — never
+blank them.
 
 ---
 
