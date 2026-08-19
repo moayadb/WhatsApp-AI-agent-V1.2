@@ -9,19 +9,33 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+             && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isAllowedUser() {
+      return signedIn()
+             && exists(/databases/$(database)/documents/allowed_users/$(request.auth.uid))
+             && get(/databases/$(database)/documents/allowed_users/$(request.auth.uid)).data.enabled != false
+             && get(/databases/$(database)/documents/allowed_users/$(request.auth.uid)).data.email
+                == request.auth.token.email;
+    }
+
     // -----------------------------------------------------------------
-    // Sign-in allowlist. Read must be public: the gatekeeper check runs
-    // BEFORE the magic link is sent, i.e. while the user is still
-    // unauthenticated. Only the email is exposed, and only to someone who
-    // already knows the address they are typing in.
+    // Sign-in allowlist. Documents are keyed by Firebase Auth UID. A user can
+    // read only their own profile; administrators can manage the collection.
     //
     // Writes are admin-only. `admins/{uid}` is maintained from the Firebase
     // console (or a service account); no client can grant itself entry.
     // -----------------------------------------------------------------
-    match /allowed_users/{docId} {
-      allow read: if true;
-      allow write: if request.auth != null
-                   && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    match /allowed_users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isAdmin();
     }
 
     // -----------------------------------------------------------------
@@ -38,31 +52,43 @@ service cloud.firestore {
     // -----------------------------------------------------------------
     match /device_tokens/{deviceId} {
       allow read: if false;
-      allow create, update: if request.auth != null
-                   && request.resource.data.email == request.auth.token.email;
-      allow delete: if request.auth != null
-                    && resource.data.email == request.auth.token.email;
+      allow create: if isAllowedUser()
+                    && request.resource.data.keys().hasOnly([
+                      'token', 'owner_uid', 'email', 'platform', 'updated_at'
+                    ])
+                    && request.resource.data.token is string
+                    && request.resource.data.owner_uid == request.auth.uid
+                    && request.resource.data.email == request.auth.token.email
+                    && request.resource.data.platform in ['android', 'ios']
+                    && request.resource.data.updated_at is timestamp;
+      allow update: if isAllowedUser()
+                    && resource.data.owner_uid == request.auth.uid
+                    && request.resource.data.keys().hasOnly([
+                      'token', 'owner_uid', 'email', 'platform', 'updated_at'
+                    ])
+                    && request.resource.data.token is string
+                    && request.resource.data.owner_uid == request.auth.uid
+                    && request.resource.data.email == request.auth.token.email
+                    && request.resource.data.platform in ['android', 'ios']
+                    && request.resource.data.updated_at is timestamp;
+      allow delete: if isAllowedUser()
+                    && resource.data.owner_uid == request.auth.uid;
     }
 
     // Admin registry — readable only by admins, never client-writable.
     match /admins/{uid} {
-      allow read: if request.auth != null
-                  && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      allow read: if isAdmin();
       allow write: if false;
     }
 
     match /alerts/{alertId} {
-      // ---------------------------------------------------------------
-      // DEV MODE (active): anyone holding the web API key can read.
-      // Once magic-link sign-in is live end-to-end, tighten this to:
-      //     allow read: if request.auth != null;
-      // ---------------------------------------------------------------
-      allow read: if true;
+      // Customer-derived data is available only to explicitly allowed users.
+      allow read: if isAllowedUser();
 
       // The only permitted write: a status transition, optionally carrying
       // the completion_date stamp. Nothing else in the document may change
       // in the same request.
-      allow update: if
+      allow update: if isAllowedUser() &&
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status', 'completion_date']) &&
         request.resource.data.status in ['new', 'done', 'ignored'] &&

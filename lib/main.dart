@@ -1,61 +1,78 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'firebase_options.dart';
+import 'core/api_client.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'l10n/labels.dart';
 import 'providers/alerts_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/dashboard_provider.dart';
+import 'providers/onboarding_provider.dart';
 import 'providers/settings_provider.dart';
-import 'screens/login_screen.dart';
-import 'screens/main_shell.dart';
-import 'services/alerts_service.dart';
-import 'services/auth_service.dart';
-import 'services/push_service.dart';
+import 'providers/team_provider.dart';
+import 'screens/auth_screen.dart';
+import 'screens/intake_screen.dart';
+import 'screens/shell.dart';
+import 'services/analyzer_api.dart';
+import 'services/realtime_service.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   registerTimeagoLocales();
   final prefs = await SharedPreferences.getInstance();
 
-  runApp(WhatsAppInsightsApp(prefs: prefs));
+  // Firebase is deliberately not initialised here. The only thing left that
+  // needs it is Cloud Messaging, which is set up lazily once a session exists —
+  // so the web build runs with no Firebase project configured at all.
+  runApp(AnalyzerApp(prefs: prefs));
 }
 
-class WhatsAppInsightsApp extends StatelessWidget {
-  WhatsAppInsightsApp({super.key, required this.prefs});
+class AnalyzerApp extends StatefulWidget {
+  const AnalyzerApp({super.key, required this.prefs});
 
   final SharedPreferences prefs;
 
-  /// One service instance shared by both providers — same collection, two
-  /// differently-scoped queries.
-  final AlertsService _alertsService = AlertsService();
+  @override
+  State<AnalyzerApp> createState() => _AnalyzerAppState();
+}
+
+class _AnalyzerAppState extends State<AnalyzerApp> {
+  late final ApiClient _client = ApiClient();
+  late final AnalyzerApi _api = AnalyzerApi(_client);
+  late final RealtimeService _realtime = RealtimeService();
+
+  @override
+  void dispose() {
+    _realtime.dispose();
+    _client.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => SettingsProvider(prefs)),
+        Provider.value(value: _api),
+        ChangeNotifierProvider(create: (_) => SettingsProvider(widget.prefs)),
         ChangeNotifierProvider(
-          // Push registration rides on the session lifecycle — a token is only
-          // useful while somebody is signed in, and must be dropped on the way
-          // out. See PushService: the app only ever receives; the send is
-          // server-side from whatever writes the alert document.
-          create: (_) =>
-              AuthProvider(FirebaseAuthService(), PushService())..restore(),
+          create: (_) => AuthProvider(
+            client: _client,
+            api: _api,
+            realtime: _realtime,
+            prefs: widget.prefs,
+          )..restore(),
         ),
-        // Two Firestore subscriptions, both above the navigation shell and
-        // both started once when it mounts — never per-screen.
-        //   AlertsProvider    → the action queue (needs_attention only)
-        //   DashboardProvider → analytics over every analyzed message, which
-        //                       is what makes escalation ratios possible.
-        ChangeNotifierProvider(create: (_) => AlertsProvider(_alertsService)),
-        ChangeNotifierProvider(create: (_) => DashboardProvider(_alertsService)),
+        // One realtime subscription, shared. Alerts is the only consumer today;
+        // channel-status events will hang off the same socket.
+        ChangeNotifierProvider(
+          create: (_) => AlertsProvider(_api, _realtime),
+        ),
+        ChangeNotifierProvider(create: (_) => TeamProvider(_api)),
+        ChangeNotifierProvider(create: (_) => DashboardProvider(_api)),
+        ChangeNotifierProvider(create: (_) => OnboardingProvider(_api)),
       ],
       child: Consumer<SettingsProvider>(
         builder: (context, settings, _) => MaterialApp(
@@ -79,19 +96,25 @@ class WhatsAppInsightsApp extends StatelessWidget {
   }
 }
 
-/// Auth gate: session-restore splash → login → shell.
+/// Routes on session state: splash → auth → intake → app.
+///
+/// The intake gate is deliberate. A manager who abandons onboarding halfway
+/// lands back in it, because the thresholds it sets are what make every alert
+/// after it meaningful.
 class _Root extends StatelessWidget {
   const _Root();
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-    if (auth.restoring) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 250),
-      child: auth.isSignedIn ? const MainShell() : const LoginScreen(),
-    );
+    final stage = context.watch<AuthProvider>().stage;
+
+    return switch (stage) {
+      SessionStage.restoring => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      SessionStage.signedOut => const AuthScreen(),
+      SessionStage.intake => const IntakeScreen(),
+      SessionStage.ready => const Shell(),
+    };
   }
 }

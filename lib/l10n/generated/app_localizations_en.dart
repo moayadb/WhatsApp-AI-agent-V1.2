@@ -9,457 +9,476 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'Sanayed';
+  String get appTitle => 'Multi-Channel AI Analyzer';
 
   @override
-  String get loginSubtitle => 'AI-powered alerts from your WhatsApp operations';
+  String get signInTitle => 'Sign in';
 
   @override
-  String get usernameLabel => 'Username';
+  String get signUpTitle => 'Create your account';
+
+  @override
+  String get authSubtitle =>
+      'Know which conversation needs you — before the client walks.';
+
+  @override
+  String get fullNameLabel => 'Full name';
+
+  @override
+  String get emailLabel => 'Email';
+
+  @override
+  String get phoneLabel => 'Mobile number';
+
+  @override
+  String get phoneHelp => 'International format, e.g. +971501234567';
 
   @override
   String get passwordLabel => 'Password';
 
   @override
+  String get companyLabel => 'Company name';
+
+  @override
+  String get acceptTerms =>
+      'I agree to the privacy policy and terms of service';
+
+  @override
+  String get createAccount => 'Create account';
+
+  @override
   String get signInAction => 'Sign in';
 
   @override
-  String get invalidCredentials => 'Incorrect username or password.';
+  String get haveAccount => 'Already have an account? Sign in';
 
   @override
-  String get notAuthorized => 'This account is not authorized to use Sanayed.';
-
-  @override
-  String get tooManyAttempts =>
-      'Too many attempts. Wait a moment and try again.';
-
-  @override
-  String get signInFailed =>
-      'Could not sign in. Check your connection and try again.';
-
-  @override
-  String greetingMorning(String name) {
-    return 'Good morning, $name';
-  }
-
-  @override
-  String greetingEvening(String name) {
-    return 'Good evening, $name';
-  }
-
-  @override
-  String updatedAgo(String time) {
-    return 'Updated $time';
-  }
-
-  @override
-  String get connActive => 'Active';
-
-  @override
-  String get connNoRecent => 'No recent messages';
-
-  @override
-  String get connConnecting => 'Connecting';
-
-  @override
-  String get connDbError => 'Database issue';
-
-  @override
-  String get connSheetTitle => 'WhatsApp activity';
-
-  @override
-  String get connSheetBody =>
-      'This status is inferred from message activity, not a live WhatsApp connection.';
-
-  @override
-  String connLastMessage(String time) {
-    return 'Last message arrived $time';
-  }
-
-  @override
-  String get connNoMessagesYet => 'No messages received yet';
-
-  @override
-  String get connDbErrorBody =>
-      'The app could not reach the database. Alerts shown may be out of date.';
-
-  @override
-  String get tabDashboard => 'Dashboard';
-
-  @override
-  String get tabAlerts => 'Alerts';
-
-  @override
-  String get tabSettings => 'Settings';
-
-  @override
-  String get chipAll => 'All';
-
-  @override
-  String get deptSales => 'Sales';
-
-  @override
-  String get deptOperations => 'Operations';
-
-  @override
-  String get deptDelivery => 'Delivery';
-
-  @override
-  String get deptFinance => 'Finance';
-
-  @override
-  String get deptSupport => 'Support';
-
-  @override
-  String get deptManagement => 'Management';
-
-  @override
-  String get deptUnknown => 'Other';
-
-  @override
-  String get prioUrgent => 'Urgent';
-
-  @override
-  String get prioLow => 'Low';
-
-  @override
-  String get prioMedium => 'Medium';
-
-  @override
-  String get prioHigh => 'High';
-
-  @override
-  String get prioUnknown => '—';
-
-  @override
-  String get statusNew => 'New';
-
-  @override
-  String get statusDone => 'Done';
-
-  @override
-  String get statusIgnored => 'Ignored';
-
-  @override
-  String get catCustomerComplaint => 'Customer complaint';
-
-  @override
-  String get catCustomerDissatisfaction => 'Customer dissatisfaction';
-
-  @override
-  String get catRefundRequest => 'Refund request';
-
-  @override
-  String get catDeliveryProblem => 'Delivery problem';
-
-  @override
-  String get catPaymentIssue => 'Payment issue';
-
-  @override
-  String get catWrongOrDamagedOrder => 'Wrong or damaged order';
-
-  @override
-  String get catQualityIssue => 'Quality issue';
-
-  @override
-  String get catLegalThreat => 'Legal threat';
-
-  @override
-  String get catVipIssue => 'VIP issue';
-
-  @override
-  String get catGeneralInquiry => 'General inquiry';
-
-  @override
-  String get catOther => 'Other';
-
-  @override
-  String get dirIncoming => 'Incoming';
-
-  @override
-  String get dirOutgoing => 'Outgoing';
-
-  @override
-  String get msgSourceCustomer => 'Customer message';
-
-  @override
-  String get msgSourceAudio => 'Voice note analysis';
-
-  @override
-  String get msgSourceImage => 'Image analysis';
-
-  @override
-  String get captionLabel => 'Customer caption';
-
-  @override
-  String get noText => 'No text';
-
-  @override
-  String get unknownSender => 'Unknown';
-
-  @override
-  String get emptyAlertsTitle => 'No alerts in this section';
-
-  @override
-  String get emptyAlertsBody => 'New alerts will appear here as they arrive.';
-
-  @override
-  String get detailTitle => 'Alert';
-
-  @override
-  String get messageLabel => 'Message';
-
-  @override
-  String get reasonLabel => 'Why it was flagged';
-
-  @override
-  String get actionLabel => 'Recommended action';
-
-  @override
-  String get markDone => 'Mark as done';
-
-  @override
-  String get markIgnored => 'Ignore';
-
-  @override
-  String get confirmDoneTitle => 'Mark as done?';
-
-  @override
-  String get confirmDoneBody =>
-      'Are you sure you want to mark this alert as completed?';
-
-  @override
-  String get confirmIgnoreTitle => 'Ignore alert?';
-
-  @override
-  String get confirmIgnoreBody => 'Are you sure you want to ignore this alert?';
-
-  @override
-  String get confirmRevertTitle => 'Revert to new?';
-
-  @override
-  String get confirmRevertBody =>
-      'This alert will return to the new alerts list.';
-
-  @override
-  String get confirm => 'Confirm';
-
-  @override
-  String get cancel => 'Cancel';
-
-  @override
-  String get resolvedDone => 'This alert is completed';
-
-  @override
-  String get resolvedIgnored => 'This alert was ignored';
-
-  @override
-  String completedAt(String time) {
-    return 'Completed $time';
-  }
-
-  @override
-  String get revertStatus => 'Revert';
-
-  @override
-  String get statusReverted => 'Status reverted';
-
-  @override
-  String get soundEnabled => 'Alert sound';
-
-  @override
-  String get exportTitle => 'Export';
-
-  @override
-  String get exportExcel => 'Excel';
-
-  @override
-  String get exportPdf => 'PDF';
-
-  @override
-  String get exportEmail => 'Email';
-
-  @override
-  String get exportPreparing => 'Preparing…';
-
-  @override
-  String get exportDone => 'Exported';
-
-  @override
-  String get exportFailed => 'Export failed';
-
-  @override
-  String get emailDialogTitle => 'Email report';
-
-  @override
-  String get emailFieldLabel => 'Recipient email';
-
-  @override
-  String get emailSend => 'Send';
-
-  @override
-  String get emailSent => 'Request sent';
-
-  @override
-  String get emailNotConfigured => 'Backend endpoint not configured yet';
-
-  @override
-  String get metricAvgHandling => 'Avg handling time';
-
-  @override
-  String get statusSaved => 'Saved';
-
-  @override
-  String get statusSaveFailed =>
-      'Could not save — check your connection and try again';
-
-  @override
-  String get metricTotal => 'Total';
-
-  @override
-  String get metricNew => 'New';
-
-  @override
-  String get metricHigh => 'Urgent & high';
-
-  @override
-  String get metricDone => 'Done';
-
-  @override
-  String get chartByCategory => 'By category';
-
-  @override
-  String get chartLast7Days => 'Last 7 days';
-
-  @override
-  String get chartPriority => 'By priority';
-
-  @override
-  String get emptyDashboard => 'Nothing to chart yet';
-
-  @override
-  String get emptyDashboardBody =>
-      'Once alerts arrive, your numbers will show up here.';
-
-  @override
-  String get metricAnalyzed => 'Messages analyzed';
-
-  @override
-  String get metricAlerts => 'Alerts';
-
-  @override
-  String get metricEscalationRate => 'Escalation rate';
-
-  @override
-  String get metricOpenBacklog => 'Open backlog';
-
-  @override
-  String get sectionWorkload => 'Workload';
-
-  @override
-  String get sectionBreakdown => 'Breakdown';
-
-  @override
-  String get sectionCustomers => 'Customers';
-
-  @override
-  String get chartEscalationSplit => 'Alerts vs routine messages';
-
-  @override
-  String get legendAlerts => 'Alerts';
-
-  @override
-  String get legendQuiet => 'No action needed';
-
-  @override
-  String get chartVolumeOverTime => 'Volume over time';
-
-  @override
-  String get chartPeakHours => 'Peak hours';
-
-  @override
-  String get chartByDepartment => 'By department';
-
-  @override
-  String get chartMessageTypes => 'Message types';
-
-  @override
-  String get chartHandling => 'Handling status';
-
-  @override
-  String get msgTypeText => 'Text';
-
-  @override
-  String get msgTypeImage => 'Images';
-
-  @override
-  String get msgTypeAudio => 'Voice';
-
-  @override
-  String get rangeToday => 'Today';
-
-  @override
-  String get rangeWeek => '7 days';
-
-  @override
-  String get rangeMonth => '30 days';
-
-  @override
-  String get rangeAll => 'All';
-
-  @override
-  String get filtersLabel => 'Filters';
-
-  @override
-  String get clearFilters => 'Clear';
-
-  @override
-  String get statUniqueContacts => 'Unique customers';
-
-  @override
-  String get statRepeatContacts => 'Repeat customers';
-
-  @override
-  String get topContacts => 'Most alerts raised';
-
-  @override
-  String get handledRate => 'Handled';
-
-  @override
-  String alertsCount(int count) {
-    return '$count alerts';
-  }
-
-  @override
-  String get settingsAccount => 'Account';
-
-  @override
-  String get settingsAppearance => 'Preferences';
-
-  @override
-  String get roleOwner => 'Business owner';
-
-  @override
-  String get roleSales => 'Sales manager';
-
-  @override
-  String get rolePurchasing => 'Purchasing manager';
-
-  @override
-  String get darkMode => 'Dark mode';
-
-  @override
-  String get language => 'Language';
-
-  @override
-  String get connectionStatus => 'Connection status';
+  String get noAccount => 'New here? Create an account';
 
   @override
   String get signOut => 'Sign out';
 
   @override
-  String get errorTitle => 'Something went wrong';
+  String get errInvalidCredentials => 'Email or password is incorrect.';
 
   @override
-  String get retry => 'Retry';
+  String get errEmailTaken => 'An account already exists for this email.';
+
+  @override
+  String get errNetwork => 'Cannot reach the server. Check your connection.';
+
+  @override
+  String get errGeneric => 'Something went wrong. Try again.';
+
+  @override
+  String get errTermsRequired => 'You need to accept the terms to continue.';
+
+  @override
+  String get errPasswordShort => 'Use at least 8 characters.';
+
+  @override
+  String get errPhoneFormat =>
+      'Enter the number in international format, starting with +.';
+
+  @override
+  String get retryAction => 'Try again';
+
+  @override
+  String get intakeTitle => 'A few questions';
+
+  @override
+  String get intakeSubtitle =>
+      'Your answers set the thresholds the system enforces.';
+
+  @override
+  String get intakeHint => 'Type your answer…';
+
+  @override
+  String get intakeDoneTitle => 'That\'s everything';
+
+  @override
+  String get intakeDoneBody => 'Next: add your team and connect their numbers.';
+
+  @override
+  String get intakeContinue => 'Continue';
+
+  @override
+  String get tabAlerts => 'Alerts';
+
+  @override
+  String get tabTeam => 'Team';
+
+  @override
+  String get tabBoard => 'Board';
+
+  @override
+  String get tabSettings => 'Settings';
+
+  @override
+  String get filterOpen => 'Needs action';
+
+  @override
+  String get filterDone => 'Handled';
+
+  @override
+  String get filterAll => 'All';
+
+  @override
+  String get noAlertsTitle => 'Nothing needs you';
+
+  @override
+  String get noAlertsBody =>
+      'Every client has been answered. You\'ll be told the moment that changes.';
+
+  @override
+  String get noAlertsConnectTitle => 'No numbers connected yet';
+
+  @override
+  String get noAlertsConnectBody =>
+      'Connect an agent\'s WhatsApp to start watching conversations.';
+
+  @override
+  String get typeSlaBreach => 'Unanswered';
+
+  @override
+  String get typeColdLead => 'Going cold';
+
+  @override
+  String get typeUnauthorizedPromise => 'Unapproved promise';
+
+  @override
+  String get typeOffChannel => 'Taken off-channel';
+
+  @override
+  String get typeEscalation => 'Client escalating';
+
+  @override
+  String get typeOther => 'Other';
+
+  @override
+  String get sevUrgent => 'Urgent';
+
+  @override
+  String get sevHigh => 'High';
+
+  @override
+  String get sevMedium => 'Medium';
+
+  @override
+  String get sevLow => 'Low';
+
+  @override
+  String get markDone => 'Handled';
+
+  @override
+  String get markIgnored => 'Ignore';
+
+  @override
+  String get reopen => 'Reopen';
+
+  @override
+  String get alertDetailTitle => 'Alert';
+
+  @override
+  String get recommendedAction => 'What to do';
+
+  @override
+  String get conversationLabel => 'Conversation';
+
+  @override
+  String get clientLabel => 'Client';
+
+  @override
+  String get agentLabel => 'Agent';
+
+  @override
+  String get unassignedAgent => 'Unassigned number';
+
+  @override
+  String get vipTag => 'VIP';
+
+  @override
+  String get noThread => 'No messages stored for this alert yet.';
+
+  @override
+  String get teamTitle => 'Your team';
+
+  @override
+  String get addAgents => 'Add agents';
+
+  @override
+  String get addAgentsHint => 'One name per line';
+
+  @override
+  String get addAction => 'Add';
+
+  @override
+  String get cancelAction => 'Cancel';
+
+  @override
+  String get linkNumber => 'Connect a number';
+
+  @override
+  String get numbersTitle => 'Connected numbers';
+
+  @override
+  String get myOwnNumber => 'My own number';
+
+  @override
+  String get noAgentsTitle => 'No agents yet';
+
+  @override
+  String get noAgentsBody =>
+      'Add your team by name, then connect each of their WhatsApp numbers.';
+
+  @override
+  String get statusConnected => 'Watching';
+
+  @override
+  String get statusSyncing => 'Syncing';
+
+  @override
+  String get statusPairing => 'Waiting for code';
+
+  @override
+  String get statusDisconnected => 'Disconnected';
+
+  @override
+  String get statusLoggedOut => 'Unlinked — needs reconnecting';
+
+  @override
+  String get statusError => 'Error';
+
+  @override
+  String get statusNew => 'Not connected';
+
+  @override
+  String get unlinkAction => 'Unlink';
+
+  @override
+  String get removeAction => 'Remove';
+
+  @override
+  String get reconnectAction => 'Reconnect';
+
+  @override
+  String get linkTitle => 'Connect WhatsApp';
+
+  @override
+  String get linkMethodPhone => 'With phone number';
+
+  @override
+  String get linkMethodQr => 'Scan QR code';
+
+  @override
+  String get linkAssignTo => 'Whose number is this?';
+
+  @override
+  String get consentLabel => 'Who agreed to this being monitored';
+
+  @override
+  String get consentHelp =>
+      'Kept as a record. Monitoring someone\'s WhatsApp needs their agreement.';
+
+  @override
+  String get getCodeAction => 'Get code';
+
+  @override
+  String get codeTitle => 'Type this code in WhatsApp';
+
+  @override
+  String get codeStep1 => 'On that phone, open WhatsApp';
+
+  @override
+  String get codeStep2 => 'Settings → Linked devices → Link a device';
+
+  @override
+  String get codeStep3 => 'Tap \"Link with phone number instead\"';
+
+  @override
+  String get codeStep4 => 'Enter the code above';
+
+  @override
+  String get qrTitle => 'Scan this with WhatsApp';
+
+  @override
+  String get qrSteps =>
+      'WhatsApp → Settings → Linked devices → Link a device, then scan.';
+
+  @override
+  String get refreshCode => 'Get a new code';
+
+  @override
+  String get linkedTitle => 'Connected';
+
+  @override
+  String get linkedBody =>
+      'Conversations on this number are being watched now.';
+
+  @override
+  String get doneAction => 'Done';
+
+  @override
+  String get boardTitle => 'Right now';
+
+  @override
+  String get boardWaiting => 'Clients waiting';
+
+  @override
+  String get boardMedian => 'Median first reply';
+
+  @override
+  String get boardOpenAlerts => 'Open alerts';
+
+  @override
+  String get boardUnmonitored => 'Agents not monitored';
+
+  @override
+  String get colWaiting => 'Waiting';
+
+  @override
+  String get colLongest => 'Longest';
+
+  @override
+  String get colBreaches => 'Late';
+
+  @override
+  String get colCold => 'Cold';
+
+  @override
+  String get colConduct => 'Conduct';
+
+  @override
+  String get notMonitoredTag => 'Not connected';
+
+  @override
+  String get boardEmptyTitle => 'Nothing to show yet';
+
+  @override
+  String get boardEmptyBody =>
+      'Add agents and connect their numbers to see how the team is doing.';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get thresholdsTitle => 'When to alert me';
+
+  @override
+  String get firstResponseLabel => 'Reply to a new client within';
+
+  @override
+  String get vipResponseLabel => 'For VIP clients, within';
+
+  @override
+  String get coldLeadLabel => 'Flag a silent conversation after';
+
+  @override
+  String get detectorsTitle => 'What to watch for';
+
+  @override
+  String get detectPromises => 'Promises the company may not honour';
+
+  @override
+  String get detectOffChannel => 'Clients taken off the company channel';
+
+  @override
+  String get notificationsTitle => 'Notifications';
+
+  @override
+  String get minPushSeverity => 'Only notify me at or above';
+
+  @override
+  String get quietHoursLabel => 'Quiet hours';
+
+  @override
+  String get quietHoursHelp => 'Urgent alerts still come through.';
+
+  @override
+  String get quietHoursOff => 'Off';
+
+  @override
+  String get appearanceTitle => 'Appearance';
+
+  @override
+  String get themeSystem => 'Match device';
+
+  @override
+  String get themeLight => 'Light';
+
+  @override
+  String get themeDark => 'Dark';
+
+  @override
+  String get languageTitle => 'Language';
+
+  @override
+  String get arabicLabel => 'العربية';
+
+  @override
+  String get englishLabel => 'English';
+
+  @override
+  String get accountTitle => 'Account';
+
+  @override
+  String get savedToast => 'Saved';
+
+  @override
+  String minutesShort(int count) {
+    return '$count min';
+  }
+
+  @override
+  String hoursShort(int count) {
+    return '$count h';
+  }
+
+  @override
+  String waitedFor(int count) {
+    return 'Waiting $count min';
+  }
+
+  @override
+  String agentsConnected(int connected, int total) {
+    return '$connected of $total numbers watching';
+  }
+
+  @override
+  String needsAttentionBanner(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count numbers stopped watching',
+      one: '1 number stopped watching',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get promptTitle => 'What the system will watch for';
+
+  @override
+  String get promptSubtitle =>
+      'Written from your answers. You can change it later in Settings.';
+
+  @override
+  String get promptScriptedNote =>
+      'Built without an AI model — connect one to have this written specifically for your business.';
+
+  @override
+  String get thinking => 'Thinking…';
+
+  @override
+  String get linkStalled =>
+      'WhatsApp has not returned a code. Ask for a new one, and check the number is correct.';
+
+  @override
+  String get refineHint => 'Ask for a change to what the system watches…';
+
+  @override
+  String get editAction => 'Edit';
+
+  @override
+  String get promptLoadFailed => 'Could not load the monitoring text.';
 }

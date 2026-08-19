@@ -1,36 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Theme + language, persisted locally. Arabic is the primary language
-/// (spec §13), so it is the default until the user chooses otherwise.
+/// Device-local preferences: theme and language.
+///
+/// Deliberately separate from [OrgSettings], which lives on the server and
+/// governs what the detectors do. These two are often confused; they are not
+/// the same thing and do not belong in the same place.
 class SettingsProvider extends ChangeNotifier {
-  SettingsProvider(this._prefs)
-      : _themeMode = switch (_prefs.getString('theme')) {
-          'dark' => ThemeMode.dark,
-          'light' => ThemeMode.light,
-          _ => ThemeMode.system,
-        },
-        _locale = Locale(_prefs.getString('locale') ?? 'ar');
+  SettingsProvider(this._prefs);
+
+  static const _themeKey = 'theme_mode';
+  static const _localeKey = 'locale';
 
   final SharedPreferences _prefs;
 
-  ThemeMode _themeMode;
-  Locale _locale;
+  ThemeMode get themeMode => switch (_prefs.getString(_themeKey)) {
+    'light' => ThemeMode.light,
+    'dark' => ThemeMode.dark,
+    _ => ThemeMode.system,
+  };
 
-  ThemeMode get themeMode => _themeMode;
-  Locale get locale => _locale;
-  bool get isArabic => _locale.languageCode == 'ar';
+  /// Arabic first — the users are in Dubai.
+  Locale get locale => Locale(_prefs.getString(_localeKey) ?? 'ar');
 
-  void setDark(bool dark) {
-    _themeMode = dark ? ThemeMode.dark : ThemeMode.light;
-    _prefs.setString('theme', dark ? 'dark' : 'light');
+  Future<void> setThemeMode(ThemeMode mode) async {
+    await _prefs.setString(_themeKey, mode.name);
     notifyListeners();
   }
 
-  void setLocale(String code) {
-    if (_locale.languageCode == code) return;
-    _locale = Locale(code);
-    _prefs.setString('locale', code);
+  Future<void> setLocale(Locale value) async {
+    await _prefs.setString(_localeKey, value.languageCode);
     notifyListeners();
   }
 }

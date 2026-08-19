@@ -1,6 +1,6 @@
 {
-    "name": "Sanayed",
-    "short_name": "Sanayed",
+    "name": "Multi-Channel AI Analyzer",
+    "short_name": "AI Analyzer",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0B100E",

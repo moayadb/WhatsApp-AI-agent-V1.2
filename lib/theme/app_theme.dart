@@ -32,15 +32,24 @@ abstract final class AppColors {
     Color(0xFF6B7280), // grey (other)
   ];
 
-  static Color priority(AlertPriority p) => switch (p) {
-        AlertPriority.urgent => priorityUrgent,
-        AlertPriority.high => priorityHigh,
-        AlertPriority.medium => priorityMedium,
-        AlertPriority.low => priorityLow,
-        AlertPriority.unknown => priorityUnknown,
-      };
+  static Color priority(Severity s) => switch (s) {
+    Severity.urgent => priorityUrgent,
+    Severity.high => priorityHigh,
+    Severity.medium => priorityMedium,
+    Severity.low => priorityLow,
+  };
 
-  static Color category(AlertCategory c) => categorical[c.index % categorical.length];
+  /// Colour per alert kind, so the feed is scannable without reading it.
+  /// Conduct problems are deliberately the loudest non-red: they are the ones
+  /// a manager would otherwise never find out about.
+  static Color alertType(AlertType t) => switch (t) {
+    AlertType.slaBreach => priorityUrgent,
+    AlertType.coldLead => priorityMedium,
+    AlertType.unauthorizedPromise => Color(0xFF7C3AED),
+    AlertType.offChannel => Color(0xFFDB2777),
+    AlertType.escalation => priorityHigh,
+    AlertType.other => priorityUnknown,
+  };
 }
 
 abstract final class AppTheme {

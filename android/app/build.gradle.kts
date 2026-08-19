@@ -11,18 +11,26 @@ plugins {
 }
 
 // Play upload keystore. android/key.properties is gitignored and holds the
-// paths + passwords; when it is absent (fresh clone, CI without secrets) the
-// release build falls back to debug signing so `flutter run --release` still
-// works — Play will reject such a build, which is the correct failure.
+// paths and passwords. Release builds fail closed below; there is no
+// debug-signing fallback.
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
 }
+val releaseRequested = gradle.startParameter.taskNames.any {
+    it.contains("release", ignoreCase = true)
+}
+if (releaseRequested && !keystorePropertiesFile.exists()) {
+    throw GradleException(
+        "Release signing is not configured. Create android/key.properties " +
+            "and the Play upload keystore before building a release."
+    )
+}
 
 android {
     namespace = "com.sanayed.analyzer"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -38,7 +46,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -56,10 +64,8 @@ android {
 
     buildTypes {
         release {
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
             }
         }
     }

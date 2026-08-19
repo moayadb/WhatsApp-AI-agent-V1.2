@@ -101,20 +101,50 @@ abstract class AppLocalizations {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'Sanayed'**
+  /// **'Multi-Channel AI Analyzer'**
   String get appTitle;
 
-  /// No description provided for @loginSubtitle.
+  /// No description provided for @signInTitle.
   ///
   /// In en, this message translates to:
-  /// **'AI-powered alerts from your WhatsApp operations'**
-  String get loginSubtitle;
+  /// **'Sign in'**
+  String get signInTitle;
 
-  /// No description provided for @usernameLabel.
+  /// No description provided for @signUpTitle.
   ///
   /// In en, this message translates to:
-  /// **'Username'**
-  String get usernameLabel;
+  /// **'Create your account'**
+  String get signUpTitle;
+
+  /// No description provided for @authSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Know which conversation needs you — before the client walks.'**
+  String get authSubtitle;
+
+  /// No description provided for @fullNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Full name'**
+  String get fullNameLabel;
+
+  /// No description provided for @emailLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get emailLabel;
+
+  /// No description provided for @phoneLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Mobile number'**
+  String get phoneLabel;
+
+  /// No description provided for @phoneHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'International format, e.g. +971501234567'**
+  String get phoneHelp;
 
   /// No description provided for @passwordLabel.
   ///
@@ -122,113 +152,131 @@ abstract class AppLocalizations {
   /// **'Password'**
   String get passwordLabel;
 
+  /// No description provided for @companyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Company name'**
+  String get companyLabel;
+
+  /// No description provided for @acceptTerms.
+  ///
+  /// In en, this message translates to:
+  /// **'I agree to the privacy policy and terms of service'**
+  String get acceptTerms;
+
+  /// No description provided for @createAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Create account'**
+  String get createAccount;
+
   /// No description provided for @signInAction.
   ///
   /// In en, this message translates to:
   /// **'Sign in'**
   String get signInAction;
 
-  /// No description provided for @invalidCredentials.
+  /// No description provided for @haveAccount.
   ///
   /// In en, this message translates to:
-  /// **'Incorrect username or password.'**
-  String get invalidCredentials;
+  /// **'Already have an account? Sign in'**
+  String get haveAccount;
 
-  /// No description provided for @notAuthorized.
+  /// No description provided for @noAccount.
   ///
   /// In en, this message translates to:
-  /// **'This account is not authorized to use Sanayed.'**
-  String get notAuthorized;
+  /// **'New here? Create an account'**
+  String get noAccount;
 
-  /// No description provided for @tooManyAttempts.
+  /// No description provided for @signOut.
   ///
   /// In en, this message translates to:
-  /// **'Too many attempts. Wait a moment and try again.'**
-  String get tooManyAttempts;
+  /// **'Sign out'**
+  String get signOut;
 
-  /// No description provided for @signInFailed.
+  /// No description provided for @errInvalidCredentials.
   ///
   /// In en, this message translates to:
-  /// **'Could not sign in. Check your connection and try again.'**
-  String get signInFailed;
+  /// **'Email or password is incorrect.'**
+  String get errInvalidCredentials;
 
-  /// No description provided for @greetingMorning.
+  /// No description provided for @errEmailTaken.
   ///
   /// In en, this message translates to:
-  /// **'Good morning, {name}'**
-  String greetingMorning(String name);
+  /// **'An account already exists for this email.'**
+  String get errEmailTaken;
 
-  /// No description provided for @greetingEvening.
+  /// No description provided for @errNetwork.
   ///
   /// In en, this message translates to:
-  /// **'Good evening, {name}'**
-  String greetingEvening(String name);
+  /// **'Cannot reach the server. Check your connection.'**
+  String get errNetwork;
 
-  /// No description provided for @updatedAgo.
+  /// No description provided for @errGeneric.
   ///
   /// In en, this message translates to:
-  /// **'Updated {time}'**
-  String updatedAgo(String time);
+  /// **'Something went wrong. Try again.'**
+  String get errGeneric;
 
-  /// No description provided for @connActive.
+  /// No description provided for @errTermsRequired.
   ///
   /// In en, this message translates to:
-  /// **'Active'**
-  String get connActive;
+  /// **'You need to accept the terms to continue.'**
+  String get errTermsRequired;
 
-  /// No description provided for @connNoRecent.
+  /// No description provided for @errPasswordShort.
   ///
   /// In en, this message translates to:
-  /// **'No recent messages'**
-  String get connNoRecent;
+  /// **'Use at least 8 characters.'**
+  String get errPasswordShort;
 
-  /// No description provided for @connConnecting.
+  /// No description provided for @errPhoneFormat.
   ///
   /// In en, this message translates to:
-  /// **'Connecting'**
-  String get connConnecting;
+  /// **'Enter the number in international format, starting with +.'**
+  String get errPhoneFormat;
 
-  /// No description provided for @connDbError.
+  /// No description provided for @retryAction.
   ///
   /// In en, this message translates to:
-  /// **'Database issue'**
-  String get connDbError;
+  /// **'Try again'**
+  String get retryAction;
 
-  /// No description provided for @connSheetTitle.
+  /// No description provided for @intakeTitle.
   ///
   /// In en, this message translates to:
-  /// **'WhatsApp activity'**
-  String get connSheetTitle;
+  /// **'A few questions'**
+  String get intakeTitle;
 
-  /// No description provided for @connSheetBody.
+  /// No description provided for @intakeSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'This status is inferred from message activity, not a live WhatsApp connection.'**
-  String get connSheetBody;
+  /// **'Your answers set the thresholds the system enforces.'**
+  String get intakeSubtitle;
 
-  /// No description provided for @connLastMessage.
+  /// No description provided for @intakeHint.
   ///
   /// In en, this message translates to:
-  /// **'Last message arrived {time}'**
-  String connLastMessage(String time);
+  /// **'Type your answer…'**
+  String get intakeHint;
 
-  /// No description provided for @connNoMessagesYet.
+  /// No description provided for @intakeDoneTitle.
   ///
   /// In en, this message translates to:
-  /// **'No messages received yet'**
-  String get connNoMessagesYet;
+  /// **'That\'s everything'**
+  String get intakeDoneTitle;
 
-  /// No description provided for @connDbErrorBody.
+  /// No description provided for @intakeDoneBody.
   ///
   /// In en, this message translates to:
-  /// **'The app could not reach the database. Alerts shown may be out of date.'**
-  String get connDbErrorBody;
+  /// **'Next: add your team and connect their numbers.'**
+  String get intakeDoneBody;
 
-  /// No description provided for @tabDashboard.
+  /// No description provided for @intakeContinue.
   ///
   /// In en, this message translates to:
-  /// **'Dashboard'**
-  String get tabDashboard;
+  /// **'Continue'**
+  String get intakeContinue;
 
   /// No description provided for @tabAlerts.
   ///
@@ -236,262 +284,130 @@ abstract class AppLocalizations {
   /// **'Alerts'**
   String get tabAlerts;
 
+  /// No description provided for @tabTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'Team'**
+  String get tabTeam;
+
+  /// No description provided for @tabBoard.
+  ///
+  /// In en, this message translates to:
+  /// **'Board'**
+  String get tabBoard;
+
   /// No description provided for @tabSettings.
   ///
   /// In en, this message translates to:
   /// **'Settings'**
   String get tabSettings;
 
-  /// No description provided for @chipAll.
+  /// No description provided for @filterOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs action'**
+  String get filterOpen;
+
+  /// No description provided for @filterDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Handled'**
+  String get filterDone;
+
+  /// No description provided for @filterAll.
   ///
   /// In en, this message translates to:
   /// **'All'**
-  String get chipAll;
+  String get filterAll;
 
-  /// No description provided for @deptSales.
+  /// No description provided for @noAlertsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Sales'**
-  String get deptSales;
+  /// **'Nothing needs you'**
+  String get noAlertsTitle;
 
-  /// No description provided for @deptOperations.
+  /// No description provided for @noAlertsBody.
   ///
   /// In en, this message translates to:
-  /// **'Operations'**
-  String get deptOperations;
+  /// **'Every client has been answered. You\'ll be told the moment that changes.'**
+  String get noAlertsBody;
 
-  /// No description provided for @deptDelivery.
+  /// No description provided for @noAlertsConnectTitle.
   ///
   /// In en, this message translates to:
-  /// **'Delivery'**
-  String get deptDelivery;
+  /// **'No numbers connected yet'**
+  String get noAlertsConnectTitle;
 
-  /// No description provided for @deptFinance.
+  /// No description provided for @noAlertsConnectBody.
   ///
   /// In en, this message translates to:
-  /// **'Finance'**
-  String get deptFinance;
+  /// **'Connect an agent\'s WhatsApp to start watching conversations.'**
+  String get noAlertsConnectBody;
 
-  /// No description provided for @deptSupport.
+  /// No description provided for @typeSlaBreach.
   ///
   /// In en, this message translates to:
-  /// **'Support'**
-  String get deptSupport;
+  /// **'Unanswered'**
+  String get typeSlaBreach;
 
-  /// No description provided for @deptManagement.
+  /// No description provided for @typeColdLead.
   ///
   /// In en, this message translates to:
-  /// **'Management'**
-  String get deptManagement;
+  /// **'Going cold'**
+  String get typeColdLead;
 
-  /// No description provided for @deptUnknown.
+  /// No description provided for @typeUnauthorizedPromise.
+  ///
+  /// In en, this message translates to:
+  /// **'Unapproved promise'**
+  String get typeUnauthorizedPromise;
+
+  /// No description provided for @typeOffChannel.
+  ///
+  /// In en, this message translates to:
+  /// **'Taken off-channel'**
+  String get typeOffChannel;
+
+  /// No description provided for @typeEscalation.
+  ///
+  /// In en, this message translates to:
+  /// **'Client escalating'**
+  String get typeEscalation;
+
+  /// No description provided for @typeOther.
   ///
   /// In en, this message translates to:
   /// **'Other'**
-  String get deptUnknown;
+  String get typeOther;
 
-  /// No description provided for @prioUrgent.
+  /// No description provided for @sevUrgent.
   ///
   /// In en, this message translates to:
   /// **'Urgent'**
-  String get prioUrgent;
+  String get sevUrgent;
 
-  /// No description provided for @prioLow.
-  ///
-  /// In en, this message translates to:
-  /// **'Low'**
-  String get prioLow;
-
-  /// No description provided for @prioMedium.
-  ///
-  /// In en, this message translates to:
-  /// **'Medium'**
-  String get prioMedium;
-
-  /// No description provided for @prioHigh.
+  /// No description provided for @sevHigh.
   ///
   /// In en, this message translates to:
   /// **'High'**
-  String get prioHigh;
+  String get sevHigh;
 
-  /// No description provided for @prioUnknown.
+  /// No description provided for @sevMedium.
   ///
   /// In en, this message translates to:
-  /// **'—'**
-  String get prioUnknown;
+  /// **'Medium'**
+  String get sevMedium;
 
-  /// No description provided for @statusNew.
+  /// No description provided for @sevLow.
   ///
   /// In en, this message translates to:
-  /// **'New'**
-  String get statusNew;
-
-  /// No description provided for @statusDone.
-  ///
-  /// In en, this message translates to:
-  /// **'Done'**
-  String get statusDone;
-
-  /// No description provided for @statusIgnored.
-  ///
-  /// In en, this message translates to:
-  /// **'Ignored'**
-  String get statusIgnored;
-
-  /// No description provided for @catCustomerComplaint.
-  ///
-  /// In en, this message translates to:
-  /// **'Customer complaint'**
-  String get catCustomerComplaint;
-
-  /// No description provided for @catCustomerDissatisfaction.
-  ///
-  /// In en, this message translates to:
-  /// **'Customer dissatisfaction'**
-  String get catCustomerDissatisfaction;
-
-  /// No description provided for @catRefundRequest.
-  ///
-  /// In en, this message translates to:
-  /// **'Refund request'**
-  String get catRefundRequest;
-
-  /// No description provided for @catDeliveryProblem.
-  ///
-  /// In en, this message translates to:
-  /// **'Delivery problem'**
-  String get catDeliveryProblem;
-
-  /// No description provided for @catPaymentIssue.
-  ///
-  /// In en, this message translates to:
-  /// **'Payment issue'**
-  String get catPaymentIssue;
-
-  /// No description provided for @catWrongOrDamagedOrder.
-  ///
-  /// In en, this message translates to:
-  /// **'Wrong or damaged order'**
-  String get catWrongOrDamagedOrder;
-
-  /// No description provided for @catQualityIssue.
-  ///
-  /// In en, this message translates to:
-  /// **'Quality issue'**
-  String get catQualityIssue;
-
-  /// No description provided for @catLegalThreat.
-  ///
-  /// In en, this message translates to:
-  /// **'Legal threat'**
-  String get catLegalThreat;
-
-  /// No description provided for @catVipIssue.
-  ///
-  /// In en, this message translates to:
-  /// **'VIP issue'**
-  String get catVipIssue;
-
-  /// No description provided for @catGeneralInquiry.
-  ///
-  /// In en, this message translates to:
-  /// **'General inquiry'**
-  String get catGeneralInquiry;
-
-  /// No description provided for @catOther.
-  ///
-  /// In en, this message translates to:
-  /// **'Other'**
-  String get catOther;
-
-  /// No description provided for @dirIncoming.
-  ///
-  /// In en, this message translates to:
-  /// **'Incoming'**
-  String get dirIncoming;
-
-  /// No description provided for @dirOutgoing.
-  ///
-  /// In en, this message translates to:
-  /// **'Outgoing'**
-  String get dirOutgoing;
-
-  /// No description provided for @msgSourceCustomer.
-  ///
-  /// In en, this message translates to:
-  /// **'Customer message'**
-  String get msgSourceCustomer;
-
-  /// No description provided for @msgSourceAudio.
-  ///
-  /// In en, this message translates to:
-  /// **'Voice note analysis'**
-  String get msgSourceAudio;
-
-  /// No description provided for @msgSourceImage.
-  ///
-  /// In en, this message translates to:
-  /// **'Image analysis'**
-  String get msgSourceImage;
-
-  /// No description provided for @captionLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Customer caption'**
-  String get captionLabel;
-
-  /// No description provided for @noText.
-  ///
-  /// In en, this message translates to:
-  /// **'No text'**
-  String get noText;
-
-  /// No description provided for @unknownSender.
-  ///
-  /// In en, this message translates to:
-  /// **'Unknown'**
-  String get unknownSender;
-
-  /// No description provided for @emptyAlertsTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'No alerts in this section'**
-  String get emptyAlertsTitle;
-
-  /// No description provided for @emptyAlertsBody.
-  ///
-  /// In en, this message translates to:
-  /// **'New alerts will appear here as they arrive.'**
-  String get emptyAlertsBody;
-
-  /// No description provided for @detailTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Alert'**
-  String get detailTitle;
-
-  /// No description provided for @messageLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Message'**
-  String get messageLabel;
-
-  /// No description provided for @reasonLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Why it was flagged'**
-  String get reasonLabel;
-
-  /// No description provided for @actionLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Recommended action'**
-  String get actionLabel;
+  /// **'Low'**
+  String get sevLow;
 
   /// No description provided for @markDone.
   ///
   /// In en, this message translates to:
-  /// **'Mark as done'**
+  /// **'Handled'**
   String get markDone;
 
   /// No description provided for @markIgnored.
@@ -500,473 +416,575 @@ abstract class AppLocalizations {
   /// **'Ignore'**
   String get markIgnored;
 
-  /// No description provided for @confirmDoneTitle.
+  /// No description provided for @reopen.
   ///
   /// In en, this message translates to:
-  /// **'Mark as done?'**
-  String get confirmDoneTitle;
+  /// **'Reopen'**
+  String get reopen;
 
-  /// No description provided for @confirmDoneBody.
+  /// No description provided for @alertDetailTitle.
   ///
   /// In en, this message translates to:
-  /// **'Are you sure you want to mark this alert as completed?'**
-  String get confirmDoneBody;
+  /// **'Alert'**
+  String get alertDetailTitle;
 
-  /// No description provided for @confirmIgnoreTitle.
+  /// No description provided for @recommendedAction.
   ///
   /// In en, this message translates to:
-  /// **'Ignore alert?'**
-  String get confirmIgnoreTitle;
+  /// **'What to do'**
+  String get recommendedAction;
 
-  /// No description provided for @confirmIgnoreBody.
+  /// No description provided for @conversationLabel.
   ///
   /// In en, this message translates to:
-  /// **'Are you sure you want to ignore this alert?'**
-  String get confirmIgnoreBody;
+  /// **'Conversation'**
+  String get conversationLabel;
 
-  /// No description provided for @confirmRevertTitle.
+  /// No description provided for @clientLabel.
   ///
   /// In en, this message translates to:
-  /// **'Revert to new?'**
-  String get confirmRevertTitle;
+  /// **'Client'**
+  String get clientLabel;
 
-  /// No description provided for @confirmRevertBody.
+  /// No description provided for @agentLabel.
   ///
   /// In en, this message translates to:
-  /// **'This alert will return to the new alerts list.'**
-  String get confirmRevertBody;
+  /// **'Agent'**
+  String get agentLabel;
 
-  /// No description provided for @confirm.
+  /// No description provided for @unassignedAgent.
   ///
   /// In en, this message translates to:
-  /// **'Confirm'**
-  String get confirm;
+  /// **'Unassigned number'**
+  String get unassignedAgent;
 
-  /// No description provided for @cancel.
+  /// No description provided for @vipTag.
+  ///
+  /// In en, this message translates to:
+  /// **'VIP'**
+  String get vipTag;
+
+  /// No description provided for @noThread.
+  ///
+  /// In en, this message translates to:
+  /// **'No messages stored for this alert yet.'**
+  String get noThread;
+
+  /// No description provided for @teamTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your team'**
+  String get teamTitle;
+
+  /// No description provided for @addAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'Add agents'**
+  String get addAgents;
+
+  /// No description provided for @addAgentsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'One name per line'**
+  String get addAgentsHint;
+
+  /// No description provided for @addAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get addAction;
+
+  /// No description provided for @cancelAction.
   ///
   /// In en, this message translates to:
   /// **'Cancel'**
-  String get cancel;
+  String get cancelAction;
 
-  /// No description provided for @resolvedDone.
+  /// No description provided for @linkNumber.
   ///
   /// In en, this message translates to:
-  /// **'This alert is completed'**
-  String get resolvedDone;
+  /// **'Connect a number'**
+  String get linkNumber;
 
-  /// No description provided for @resolvedIgnored.
+  /// No description provided for @numbersTitle.
   ///
   /// In en, this message translates to:
-  /// **'This alert was ignored'**
-  String get resolvedIgnored;
+  /// **'Connected numbers'**
+  String get numbersTitle;
 
-  /// No description provided for @completedAt.
+  /// No description provided for @myOwnNumber.
   ///
   /// In en, this message translates to:
-  /// **'Completed {time}'**
-  String completedAt(String time);
+  /// **'My own number'**
+  String get myOwnNumber;
 
-  /// No description provided for @revertStatus.
+  /// No description provided for @noAgentsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Revert'**
-  String get revertStatus;
+  /// **'No agents yet'**
+  String get noAgentsTitle;
 
-  /// No description provided for @statusReverted.
+  /// No description provided for @noAgentsBody.
   ///
   /// In en, this message translates to:
-  /// **'Status reverted'**
-  String get statusReverted;
+  /// **'Add your team by name, then connect each of their WhatsApp numbers.'**
+  String get noAgentsBody;
 
-  /// No description provided for @soundEnabled.
+  /// No description provided for @statusConnected.
   ///
   /// In en, this message translates to:
-  /// **'Alert sound'**
-  String get soundEnabled;
+  /// **'Watching'**
+  String get statusConnected;
 
-  /// No description provided for @exportTitle.
+  /// No description provided for @statusSyncing.
   ///
   /// In en, this message translates to:
-  /// **'Export'**
-  String get exportTitle;
+  /// **'Syncing'**
+  String get statusSyncing;
 
-  /// No description provided for @exportExcel.
+  /// No description provided for @statusPairing.
   ///
   /// In en, this message translates to:
-  /// **'Excel'**
-  String get exportExcel;
+  /// **'Waiting for code'**
+  String get statusPairing;
 
-  /// No description provided for @exportPdf.
+  /// No description provided for @statusDisconnected.
   ///
   /// In en, this message translates to:
-  /// **'PDF'**
-  String get exportPdf;
+  /// **'Disconnected'**
+  String get statusDisconnected;
 
-  /// No description provided for @exportEmail.
+  /// No description provided for @statusLoggedOut.
   ///
   /// In en, this message translates to:
-  /// **'Email'**
-  String get exportEmail;
+  /// **'Unlinked — needs reconnecting'**
+  String get statusLoggedOut;
 
-  /// No description provided for @exportPreparing.
+  /// No description provided for @statusError.
   ///
   /// In en, this message translates to:
-  /// **'Preparing…'**
-  String get exportPreparing;
+  /// **'Error'**
+  String get statusError;
 
-  /// No description provided for @exportDone.
+  /// No description provided for @statusNew.
   ///
   /// In en, this message translates to:
-  /// **'Exported'**
-  String get exportDone;
+  /// **'Not connected'**
+  String get statusNew;
 
-  /// No description provided for @exportFailed.
+  /// No description provided for @unlinkAction.
   ///
   /// In en, this message translates to:
-  /// **'Export failed'**
-  String get exportFailed;
+  /// **'Unlink'**
+  String get unlinkAction;
 
-  /// No description provided for @emailDialogTitle.
+  /// No description provided for @removeAction.
   ///
   /// In en, this message translates to:
-  /// **'Email report'**
-  String get emailDialogTitle;
+  /// **'Remove'**
+  String get removeAction;
 
-  /// No description provided for @emailFieldLabel.
+  /// No description provided for @reconnectAction.
   ///
   /// In en, this message translates to:
-  /// **'Recipient email'**
-  String get emailFieldLabel;
+  /// **'Reconnect'**
+  String get reconnectAction;
 
-  /// No description provided for @emailSend.
+  /// No description provided for @linkTitle.
   ///
   /// In en, this message translates to:
-  /// **'Send'**
-  String get emailSend;
+  /// **'Connect WhatsApp'**
+  String get linkTitle;
 
-  /// No description provided for @emailSent.
+  /// No description provided for @linkMethodPhone.
   ///
   /// In en, this message translates to:
-  /// **'Request sent'**
-  String get emailSent;
+  /// **'With phone number'**
+  String get linkMethodPhone;
 
-  /// No description provided for @emailNotConfigured.
+  /// No description provided for @linkMethodQr.
   ///
   /// In en, this message translates to:
-  /// **'Backend endpoint not configured yet'**
-  String get emailNotConfigured;
+  /// **'Scan QR code'**
+  String get linkMethodQr;
 
-  /// No description provided for @metricAvgHandling.
+  /// No description provided for @linkAssignTo.
   ///
   /// In en, this message translates to:
-  /// **'Avg handling time'**
-  String get metricAvgHandling;
+  /// **'Whose number is this?'**
+  String get linkAssignTo;
 
-  /// No description provided for @statusSaved.
+  /// No description provided for @consentLabel.
   ///
   /// In en, this message translates to:
-  /// **'Saved'**
-  String get statusSaved;
+  /// **'Who agreed to this being monitored'**
+  String get consentLabel;
 
-  /// No description provided for @statusSaveFailed.
+  /// No description provided for @consentHelp.
   ///
   /// In en, this message translates to:
-  /// **'Could not save — check your connection and try again'**
-  String get statusSaveFailed;
+  /// **'Kept as a record. Monitoring someone\'s WhatsApp needs their agreement.'**
+  String get consentHelp;
 
-  /// No description provided for @metricTotal.
+  /// No description provided for @getCodeAction.
   ///
   /// In en, this message translates to:
-  /// **'Total'**
-  String get metricTotal;
+  /// **'Get code'**
+  String get getCodeAction;
 
-  /// No description provided for @metricNew.
+  /// No description provided for @codeTitle.
   ///
   /// In en, this message translates to:
-  /// **'New'**
-  String get metricNew;
+  /// **'Type this code in WhatsApp'**
+  String get codeTitle;
 
-  /// No description provided for @metricHigh.
+  /// No description provided for @codeStep1.
   ///
   /// In en, this message translates to:
-  /// **'Urgent & high'**
-  String get metricHigh;
+  /// **'On that phone, open WhatsApp'**
+  String get codeStep1;
 
-  /// No description provided for @metricDone.
+  /// No description provided for @codeStep2.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings → Linked devices → Link a device'**
+  String get codeStep2;
+
+  /// No description provided for @codeStep3.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap \"Link with phone number instead\"'**
+  String get codeStep3;
+
+  /// No description provided for @codeStep4.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the code above'**
+  String get codeStep4;
+
+  /// No description provided for @qrTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan this with WhatsApp'**
+  String get qrTitle;
+
+  /// No description provided for @qrSteps.
+  ///
+  /// In en, this message translates to:
+  /// **'WhatsApp → Settings → Linked devices → Link a device, then scan.'**
+  String get qrSteps;
+
+  /// No description provided for @refreshCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Get a new code'**
+  String get refreshCode;
+
+  /// No description provided for @linkedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get linkedTitle;
+
+  /// No description provided for @linkedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Conversations on this number are being watched now.'**
+  String get linkedBody;
+
+  /// No description provided for @doneAction.
   ///
   /// In en, this message translates to:
   /// **'Done'**
-  String get metricDone;
+  String get doneAction;
 
-  /// No description provided for @chartByCategory.
+  /// No description provided for @boardTitle.
   ///
   /// In en, this message translates to:
-  /// **'By category'**
-  String get chartByCategory;
+  /// **'Right now'**
+  String get boardTitle;
 
-  /// No description provided for @chartLast7Days.
+  /// No description provided for @boardWaiting.
   ///
   /// In en, this message translates to:
-  /// **'Last 7 days'**
-  String get chartLast7Days;
+  /// **'Clients waiting'**
+  String get boardWaiting;
 
-  /// No description provided for @chartPriority.
+  /// No description provided for @boardMedian.
   ///
   /// In en, this message translates to:
-  /// **'By priority'**
-  String get chartPriority;
+  /// **'Median first reply'**
+  String get boardMedian;
 
-  /// No description provided for @emptyDashboard.
+  /// No description provided for @boardOpenAlerts.
   ///
   /// In en, this message translates to:
-  /// **'Nothing to chart yet'**
-  String get emptyDashboard;
+  /// **'Open alerts'**
+  String get boardOpenAlerts;
 
-  /// No description provided for @emptyDashboardBody.
+  /// No description provided for @boardUnmonitored.
   ///
   /// In en, this message translates to:
-  /// **'Once alerts arrive, your numbers will show up here.'**
-  String get emptyDashboardBody;
+  /// **'Agents not monitored'**
+  String get boardUnmonitored;
 
-  /// No description provided for @metricAnalyzed.
+  /// No description provided for @colWaiting.
   ///
   /// In en, this message translates to:
-  /// **'Messages analyzed'**
-  String get metricAnalyzed;
+  /// **'Waiting'**
+  String get colWaiting;
 
-  /// No description provided for @metricAlerts.
+  /// No description provided for @colLongest.
   ///
   /// In en, this message translates to:
-  /// **'Alerts'**
-  String get metricAlerts;
+  /// **'Longest'**
+  String get colLongest;
 
-  /// No description provided for @metricEscalationRate.
+  /// No description provided for @colBreaches.
   ///
   /// In en, this message translates to:
-  /// **'Escalation rate'**
-  String get metricEscalationRate;
+  /// **'Late'**
+  String get colBreaches;
 
-  /// No description provided for @metricOpenBacklog.
+  /// No description provided for @colCold.
   ///
   /// In en, this message translates to:
-  /// **'Open backlog'**
-  String get metricOpenBacklog;
+  /// **'Cold'**
+  String get colCold;
 
-  /// No description provided for @sectionWorkload.
+  /// No description provided for @colConduct.
   ///
   /// In en, this message translates to:
-  /// **'Workload'**
-  String get sectionWorkload;
+  /// **'Conduct'**
+  String get colConduct;
 
-  /// No description provided for @sectionBreakdown.
+  /// No description provided for @notMonitoredTag.
   ///
   /// In en, this message translates to:
-  /// **'Breakdown'**
-  String get sectionBreakdown;
+  /// **'Not connected'**
+  String get notMonitoredTag;
 
-  /// No description provided for @sectionCustomers.
+  /// No description provided for @boardEmptyTitle.
   ///
   /// In en, this message translates to:
-  /// **'Customers'**
-  String get sectionCustomers;
+  /// **'Nothing to show yet'**
+  String get boardEmptyTitle;
 
-  /// No description provided for @chartEscalationSplit.
+  /// No description provided for @boardEmptyBody.
   ///
   /// In en, this message translates to:
-  /// **'Alerts vs routine messages'**
-  String get chartEscalationSplit;
+  /// **'Add agents and connect their numbers to see how the team is doing.'**
+  String get boardEmptyBody;
 
-  /// No description provided for @legendAlerts.
+  /// No description provided for @settingsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Alerts'**
-  String get legendAlerts;
+  /// **'Settings'**
+  String get settingsTitle;
 
-  /// No description provided for @legendQuiet.
+  /// No description provided for @thresholdsTitle.
   ///
   /// In en, this message translates to:
-  /// **'No action needed'**
-  String get legendQuiet;
+  /// **'When to alert me'**
+  String get thresholdsTitle;
 
-  /// No description provided for @chartVolumeOverTime.
+  /// No description provided for @firstResponseLabel.
   ///
   /// In en, this message translates to:
-  /// **'Volume over time'**
-  String get chartVolumeOverTime;
+  /// **'Reply to a new client within'**
+  String get firstResponseLabel;
 
-  /// No description provided for @chartPeakHours.
+  /// No description provided for @vipResponseLabel.
   ///
   /// In en, this message translates to:
-  /// **'Peak hours'**
-  String get chartPeakHours;
+  /// **'For VIP clients, within'**
+  String get vipResponseLabel;
 
-  /// No description provided for @chartByDepartment.
+  /// No description provided for @coldLeadLabel.
   ///
   /// In en, this message translates to:
-  /// **'By department'**
-  String get chartByDepartment;
+  /// **'Flag a silent conversation after'**
+  String get coldLeadLabel;
 
-  /// No description provided for @chartMessageTypes.
+  /// No description provided for @detectorsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Message types'**
-  String get chartMessageTypes;
+  /// **'What to watch for'**
+  String get detectorsTitle;
 
-  /// No description provided for @chartHandling.
+  /// No description provided for @detectPromises.
   ///
   /// In en, this message translates to:
-  /// **'Handling status'**
-  String get chartHandling;
+  /// **'Promises the company may not honour'**
+  String get detectPromises;
 
-  /// No description provided for @msgTypeText.
+  /// No description provided for @detectOffChannel.
   ///
   /// In en, this message translates to:
-  /// **'Text'**
-  String get msgTypeText;
+  /// **'Clients taken off the company channel'**
+  String get detectOffChannel;
 
-  /// No description provided for @msgTypeImage.
+  /// No description provided for @notificationsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Images'**
-  String get msgTypeImage;
+  /// **'Notifications'**
+  String get notificationsTitle;
 
-  /// No description provided for @msgTypeAudio.
+  /// No description provided for @minPushSeverity.
   ///
   /// In en, this message translates to:
-  /// **'Voice'**
-  String get msgTypeAudio;
+  /// **'Only notify me at or above'**
+  String get minPushSeverity;
 
-  /// No description provided for @rangeToday.
+  /// No description provided for @quietHoursLabel.
   ///
   /// In en, this message translates to:
-  /// **'Today'**
-  String get rangeToday;
+  /// **'Quiet hours'**
+  String get quietHoursLabel;
 
-  /// No description provided for @rangeWeek.
+  /// No description provided for @quietHoursHelp.
   ///
   /// In en, this message translates to:
-  /// **'7 days'**
-  String get rangeWeek;
+  /// **'Urgent alerts still come through.'**
+  String get quietHoursHelp;
 
-  /// No description provided for @rangeMonth.
+  /// No description provided for @quietHoursOff.
   ///
   /// In en, this message translates to:
-  /// **'30 days'**
-  String get rangeMonth;
+  /// **'Off'**
+  String get quietHoursOff;
 
-  /// No description provided for @rangeAll.
+  /// No description provided for @appearanceTitle.
   ///
   /// In en, this message translates to:
-  /// **'All'**
-  String get rangeAll;
+  /// **'Appearance'**
+  String get appearanceTitle;
 
-  /// No description provided for @filtersLabel.
+  /// No description provided for @themeSystem.
   ///
   /// In en, this message translates to:
-  /// **'Filters'**
-  String get filtersLabel;
+  /// **'Match device'**
+  String get themeSystem;
 
-  /// No description provided for @clearFilters.
+  /// No description provided for @themeLight.
   ///
   /// In en, this message translates to:
-  /// **'Clear'**
-  String get clearFilters;
+  /// **'Light'**
+  String get themeLight;
 
-  /// No description provided for @statUniqueContacts.
+  /// No description provided for @themeDark.
   ///
   /// In en, this message translates to:
-  /// **'Unique customers'**
-  String get statUniqueContacts;
+  /// **'Dark'**
+  String get themeDark;
 
-  /// No description provided for @statRepeatContacts.
-  ///
-  /// In en, this message translates to:
-  /// **'Repeat customers'**
-  String get statRepeatContacts;
-
-  /// No description provided for @topContacts.
-  ///
-  /// In en, this message translates to:
-  /// **'Most alerts raised'**
-  String get topContacts;
-
-  /// No description provided for @handledRate.
-  ///
-  /// In en, this message translates to:
-  /// **'Handled'**
-  String get handledRate;
-
-  /// No description provided for @alertsCount.
-  ///
-  /// In en, this message translates to:
-  /// **'{count} alerts'**
-  String alertsCount(int count);
-
-  /// No description provided for @settingsAccount.
-  ///
-  /// In en, this message translates to:
-  /// **'Account'**
-  String get settingsAccount;
-
-  /// No description provided for @settingsAppearance.
-  ///
-  /// In en, this message translates to:
-  /// **'Preferences'**
-  String get settingsAppearance;
-
-  /// No description provided for @roleOwner.
-  ///
-  /// In en, this message translates to:
-  /// **'Business owner'**
-  String get roleOwner;
-
-  /// No description provided for @roleSales.
-  ///
-  /// In en, this message translates to:
-  /// **'Sales manager'**
-  String get roleSales;
-
-  /// No description provided for @rolePurchasing.
-  ///
-  /// In en, this message translates to:
-  /// **'Purchasing manager'**
-  String get rolePurchasing;
-
-  /// No description provided for @darkMode.
-  ///
-  /// In en, this message translates to:
-  /// **'Dark mode'**
-  String get darkMode;
-
-  /// No description provided for @language.
+  /// No description provided for @languageTitle.
   ///
   /// In en, this message translates to:
   /// **'Language'**
-  String get language;
+  String get languageTitle;
 
-  /// No description provided for @connectionStatus.
+  /// No description provided for @arabicLabel.
   ///
   /// In en, this message translates to:
-  /// **'Connection status'**
-  String get connectionStatus;
+  /// **'العربية'**
+  String get arabicLabel;
 
-  /// No description provided for @signOut.
+  /// No description provided for @englishLabel.
   ///
   /// In en, this message translates to:
-  /// **'Sign out'**
-  String get signOut;
+  /// **'English'**
+  String get englishLabel;
 
-  /// No description provided for @errorTitle.
+  /// No description provided for @accountTitle.
   ///
   /// In en, this message translates to:
-  /// **'Something went wrong'**
-  String get errorTitle;
+  /// **'Account'**
+  String get accountTitle;
 
-  /// No description provided for @retry.
+  /// No description provided for @savedToast.
   ///
   /// In en, this message translates to:
-  /// **'Retry'**
-  String get retry;
+  /// **'Saved'**
+  String get savedToast;
+
+  /// No description provided for @minutesShort.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} min'**
+  String minutesShort(int count);
+
+  /// No description provided for @hoursShort.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} h'**
+  String hoursShort(int count);
+
+  /// No description provided for @waitedFor.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting {count} min'**
+  String waitedFor(int count);
+
+  /// No description provided for @agentsConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'{connected} of {total} numbers watching'**
+  String agentsConnected(int connected, int total);
+
+  /// No description provided for @needsAttentionBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 number stopped watching} other{{count} numbers stopped watching}}'**
+  String needsAttentionBanner(int count);
+
+  /// No description provided for @promptTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What the system will watch for'**
+  String get promptTitle;
+
+  /// No description provided for @promptSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Written from your answers. You can change it later in Settings.'**
+  String get promptSubtitle;
+
+  /// No description provided for @promptScriptedNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Built without an AI model — connect one to have this written specifically for your business.'**
+  String get promptScriptedNote;
+
+  /// No description provided for @thinking.
+  ///
+  /// In en, this message translates to:
+  /// **'Thinking…'**
+  String get thinking;
+
+  /// No description provided for @linkStalled.
+  ///
+  /// In en, this message translates to:
+  /// **'WhatsApp has not returned a code. Ask for a new one, and check the number is correct.'**
+  String get linkStalled;
+
+  /// No description provided for @refineHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask for a change to what the system watches…'**
+  String get refineHint;
+
+  /// No description provided for @editAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get editAction;
+
+  /// No description provided for @promptLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load the monitoring text.'**
+  String get promptLoadFailed;
 }
 
 class _AppLocalizationsDelegate

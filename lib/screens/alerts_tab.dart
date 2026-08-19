@@ -1,247 +1,262 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
 import '../l10n/generated/app_localizations.dart';
 import '../l10n/labels.dart';
 import '../models/alert.dart';
 import '../providers/alerts_provider.dart';
-import '../providers/settings_provider.dart';
-import '../services/export_service.dart';
-import '../widgets/alert_card.dart';
-import '../widgets/export_menu.dart';
+import '../providers/auth_provider.dart';
+import '../theme/app_theme.dart';
 import '../widgets/states.dart';
 import 'alert_detail_screen.dart';
 
-class AlertsTab extends StatelessWidget {
+/// Journey step 4 — the notification list.
+///
+/// Defaults to "needs action" rather than everything: a manager opening this
+/// wants the short list of things only he can fix, not an activity log.
+class AlertsTab extends StatefulWidget {
   const AlertsTab({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final provider = context.watch<AlertsProvider>();
-    final localeCode = context.watch<SettingsProvider>().locale.languageCode;
-
-    final loading =
-        provider.streamState == StreamState.connecting && provider.allAlerts.isEmpty;
-    final alerts = provider.filteredAlerts;
-
-    return Column(
-      children: [
-        // Export sits inline with the filters — the natural "controls" strip
-        // for this screen, rather than a new toolbar row.
-        Row(
-          children: [
-            const Expanded(child: _FilterBar()),
-            _AlertsExportMenu(alerts: alerts, localeCode: localeCode),
-            const SizedBox(width: 4),
-          ],
-        ),
-        const Divider(),
-        Expanded(
-          child: loading
-              ? const SkeletonList()
-              : RefreshIndicator(
-                  onRefresh: () => context.read<AlertsProvider>().refresh(),
-                  child: alerts.isEmpty
-                      ? _scrollableEmpty(
-                          EmptyState(
-                            icon: Icons.inbox_outlined,
-                            title: l.emptyAlertsTitle,
-                            body: l.emptyAlertsBody,
-                          ),
-                        )
-                      : ListView.separated(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(16),
-                          itemCount: alerts.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 12),
-                          itemBuilder: (context, i) {
-                            final alert = alerts[i];
-                            return AlertCard(
-                              key: ValueKey(alert.id),
-                              alert: alert,
-                              effectiveStatus: provider.effectiveStatus(alert),
-                              localeCode: localeCode,
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => AlertDetailScreen(alertId: alert.id),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                ),
-        ),
-      ],
-    );
-  }
-
-  /// RefreshIndicator needs a scrollable even when empty.
-  Widget _scrollableEmpty(Widget child) => LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: SizedBox(height: constraints.maxHeight, child: child),
-        ),
-      );
+  State<AlertsTab> createState() => _AlertsTabState();
 }
 
-/// Exports exactly the list the user is looking at — the already-filtered
-/// in-memory array. No Firestore reads are triggered.
-class _AlertsExportMenu extends StatelessWidget {
-  const _AlertsExportMenu({required this.alerts, required this.localeCode});
-
-  final List<Alert> alerts;
-  final String localeCode;
+class _AlertsTabState extends State<AlertsTab> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AlertsProvider>().load();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
+    final l10n = AppLocalizations.of(context);
+    final alerts = context.watch<AlertsProvider>();
+    final org = context.watch<AuthProvider>().org;
 
-    return ExportMenu(
-      showPdf: false, // the alerts list exports as a spreadsheet
-      onExport: (kind, emailTo) async {
-        final service = ExportService.instance;
-        final bytes = service.buildAlertsWorkbook(
-          alerts: alerts,
-          headers: [
-            l.detailTitle,
-            l.prioUnknown == '—' ? 'Priority' : 'Priority',
-            'Department',
-            'Category',
-            'Status',
-            'Sender',
-            'Phone',
-            'Country',
-            'Message',
-            'Reason',
-            'Action',
-            'Message at',
-            'Completed at',
-          ],
-          rowFor: (a) => [
-            a.summary,
-            a.priority.label(l),
-            a.department.label(l),
-            a.category.label(l),
-            a.status.label(l),
-            a.resolvedSender.isEmpty ? l.unknownSender : a.resolvedSender,
-            a.senderPhone,
-            a.country,
-            a.displayText,
-            a.reason,
-            a.action,
-            a.timeAt?.toIso8601String() ?? '',
-            a.completionDate?.toIso8601String() ?? '',
-          ],
-        );
-        final filename = service.timestampedName('alerts', 'xlsx');
-        const mime =
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-
-        if (kind == ExportKind.email) {
-          return service.emailFile(
-            to: emailTo!,
-            bytes: bytes,
-            filename: filename,
-            mimeType: mime,
-          );
-        }
-        await service.shareFile(
-          bytes: bytes,
-          filename: filename,
-          mimeType: mime,
-        );
-        return null;
-      },
-    );
-  }
-}
-
-/// Three single-select chip groups on one horizontally scrollable row.
-/// Single-select (an "All" chip per group) — clearer on a phone than
-/// multi-select, and it maps 1:1 to the role default (spec §9).
-class _FilterBar extends StatelessWidget {
-  const _FilterBar();
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final provider = context.watch<AlertsProvider>();
-
-    Widget chip<T>({
-      required String label,
-      required bool selected,
-      required VoidCallback onTap,
-    }) {
-      return Padding(
-        padding: const EdgeInsetsDirectional.only(end: 8),
-        child: ChoiceChip(
-          label: Text(label),
-          selected: selected,
-          onSelected: (_) => onTap(),
-        ),
-      );
-    }
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
+    return Scaffold(
+      body: Column(
         children: [
-          // Department group
-          chip(
-            label: l.chipAll,
-            selected: provider.departmentFilter == null,
-            onTap: () => provider.setDepartmentFilter(null),
+          _FilterBar(
+            selected: alerts.statusFilter,
+            onSelected: (status) => alerts.setFilters(
+              status: status,
+              clearStatus: status == null,
+            ),
           ),
-          for (final d in const [
-            Department.sales,
-            Department.operations,
-            Department.delivery,
-            Department.finance,
-            Department.support,
-            Department.management,
-          ])
-            chip(
-              label: d.label(l),
-              selected: provider.departmentFilter == d,
-              onTap: () => provider
-                  .setDepartmentFilter(provider.departmentFilter == d ? null : d),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: alerts.load,
+              child: alerts.loading && alerts.alerts.isEmpty
+                  ? const SkeletonList()
+                  : alerts.alerts.isEmpty
+                  ? ListView(
+                      children: [
+                        const SizedBox(height: 64),
+                        // Distinguish "all quiet" from "nothing is connected",
+                        // which look identical but mean opposite things.
+                        (org?.connectedChannels ?? 0) == 0
+                            ? EmptyState(
+                                icon: Icons.link_off,
+                                title: l10n.noAlertsConnectTitle,
+                                body: l10n.noAlertsConnectBody,
+                              )
+                            : EmptyState(
+                                icon: Icons.check_circle_outline,
+                                title: l10n.noAlertsTitle,
+                                body: l10n.noAlertsBody,
+                              ),
+                      ],
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 96),
+                      itemCount: alerts.alerts.length,
+                      itemBuilder: (context, index) =>
+                          AlertCard(alert: alerts.alerts[index]),
+                    ),
             ),
-          _groupDivider(context),
-          // Priority group
-          for (final p in const [
-            AlertPriority.urgent,
-            AlertPriority.high,
-            AlertPriority.medium,
-            AlertPriority.low,
-          ])
-            chip(
-              label: p.label(l),
-              selected: provider.priorityFilter == p,
-              onTap: () =>
-                  provider.setPriorityFilter(provider.priorityFilter == p ? null : p),
-            ),
-          _groupDivider(context),
-          // Status group
-          for (final s in AlertStatus.values)
-            chip(
-              label: s.label(l),
-              selected: provider.statusFilter == s,
-              onTap: () =>
-                  provider.setStatusFilter(provider.statusFilter == s ? null : s),
-            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterBar extends StatelessWidget {
+  const _FilterBar({required this.selected, required this.onSelected});
+
+  final AlertStatus? selected;
+  final ValueChanged<AlertStatus?> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return SizedBox(
+      height: 52,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        children: [
+          _chip(l10n.filterOpen, AlertStatus.isNew),
+          const SizedBox(width: 8),
+          _chip(l10n.filterDone, AlertStatus.done),
+          const SizedBox(width: 8),
+          _chip(l10n.filterAll, null),
         ],
       ),
     );
   }
 
-  Widget _groupDivider(BuildContext context) => Padding(
-        padding: const EdgeInsetsDirectional.only(end: 8),
-        child: Container(
-          width: 1,
-          height: 24,
-          color: Theme.of(context).dividerTheme.color,
+  Widget _chip(String label, AlertStatus? value) => Builder(
+    builder: (context) => FilterChip(
+      label: Text(label),
+      selected: selected == value,
+      onSelected: (_) => onSelected(value),
+    ),
+  );
+}
+
+class AlertCard extends StatelessWidget {
+  const AlertCard({super.key, required this.alert});
+
+  final Alert alert;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final locale = Localizations.localeOf(context).languageCode;
+    final typeColor = AppColors.alertType(alert.type);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => AlertDetailScreen(alertId: alert.id),
+          ),
         ),
-      );
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: typeColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      l10n.alertType(alert.type),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: typeColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  if (alert.isVip) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.tertiaryContainer,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        l10n.vipTag,
+                        style: theme.textTheme.labelSmall,
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  Text(
+                    timeago.format(alert.eventAt, locale: locale),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              // Who, and about which client — the two things a manager scans for.
+              Row(
+                children: [
+                  Icon(
+                    Icons.person_outline,
+                    size: 15,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      alert.agentName ?? l10n.unassignedAgent,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Icon(
+                    Icons.chat_bubble_outline,
+                    size: 15,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      alert.clientLabel,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              if (alert.insight != null)
+                Text(
+                  alert.insight!,
+                  style: theme.textTheme.bodyMedium,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                )
+              else
+                Text(alert.title, style: theme.textTheme.bodyMedium),
+
+              if (alert.status == AlertStatus.isNew) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: TextButton.icon(
+                    onPressed: () => context.read<AlertsProvider>().setStatus(
+                      alert.id,
+                      AlertStatus.done,
+                    ),
+                    icon: const Icon(Icons.check, size: 18),
+                    label: Text(l10n.markDone),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
