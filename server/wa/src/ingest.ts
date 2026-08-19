@@ -272,13 +272,14 @@ export async function forwardToN8n(
       `SELECT c.display_name, c.phone_e164, c.is_vip,
               a.name AS agent_name, ch.label AS channel_label,
               s.detect_unauthorized_promise, s.detect_off_channel,
-              p.generated_prompt
+              p.generated_prompt, o.locale
          FROM contacts c
          LEFT JOIN conversations cv ON cv.id = $1
          LEFT JOIN agents a ON a.id = cv.agent_id
          LEFT JOIN channels ch ON ch.id = cv.channel_id
          LEFT JOIN org_settings s ON s.org_id = c.org_id
          LEFT JOIN org_profiles p ON p.org_id = c.org_id
+         LEFT JOIN orgs o ON o.id = c.org_id
         WHERE c.id = $2`,
       [result.conversationId, result.contactId],
     );
@@ -290,6 +291,12 @@ export async function forwardToN8n(
         'x-sanayed-secret': env.n8nSecret,
       },
       body: JSON.stringify({
+        // The manager's app language, not the conversation's. Every field the
+        // model writes comes back in it — a voice note or an image carries no
+        // text to infer a language from, so inferring produced English
+        // analysis for an Arabic manager. Clamped here so the workflow never
+        // has to guess at an unexpected value.
+        locale: meta[0]?.locale === 'en' ? 'en' : 'ar',
         message: {
           direction: msg.direction,
           body: msg.body,
