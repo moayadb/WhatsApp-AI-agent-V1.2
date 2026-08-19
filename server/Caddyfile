@@ -1,0 +1,42 @@
+# Caddy fronts everything: TLS, the API, and the Flutter web build.
+#
+# The `wa` service is absent on purpose — it is reachable only from `api`
+# over the compose network, never from the internet.
+
+# No global `email` option on purpose. Caddy's Caddyfile has no conditionals,
+# so `email {$ACME_EMAIL}` with the variable unset is a directive with zero
+# arguments, which makes Caddy reject the entire config and crash-loop — and
+# it is unset whenever the stack runs locally on :80, where ACME never happens.
+#
+# Without it Caddy registers its ACME account anonymously, which Let's Encrypt
+# allows; the only thing lost is certificate-expiry email. To get those, add:
+#     {
+#         email you@example.com
+#     }
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	# REST + WebSocket for the Flutter client, and the n8n callback.
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	# Live alert stream.
+	handle /ws {
+		reverse_proxy api:3000
+	}
+
+	# Flutter web (SPA): unknown paths fall back to index.html so deep links work.
+	handle {
+		root * /srv/web
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}

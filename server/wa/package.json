@@ -1,0 +1,25 @@
+{
+  "name": "analyzer-wa",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Baileys WhatsApp session service — pairing-code and QR linking, message ingestion.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsc -p tsconfig.json --watch"
+  },
+  "dependencies": {
+    "baileys": "6.7.24",
+    "fastify": "5.12.0",
+    "pg": "8.23.0",
+    "pino": "10.3.1",
+    "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "@types/pg": "^8.11.10",
+    "@types/qrcode": "^1.5.5",
+    "typescript": "^5.9.2"
+  }
+}

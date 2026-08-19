@@ -1,3 +1,10 @@
+> **Which files are current:** only `sanayed-intake.json` (the interviewer) and
+> `sanayed-analysis.json` (the message analyst) are in use. Everything else in
+> this folder — `tulip-alerts-whatsapp.json`, `wacrm-risk-monitor.json`,
+> `sanayed-workflow-with-push.json`, `push-nodes.json`, `build-fcm-payloads.js`
+> and the notes below — belongs to the superseded Firebase/Firestore version
+> and is kept for reference only. See `docs/CONTRACTS.md`.
+
 # Tulip Alerts – n8n WhatsApp workflow
 
 `tulip-alerts-whatsapp.json` replaces the Chat Trigger with a real Webhook so

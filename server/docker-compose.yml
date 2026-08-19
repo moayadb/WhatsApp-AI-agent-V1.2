@@ -1,0 +1,129 @@
+# Multi-Channel AI Analyzer — full stack, self-hosted.
+#
+#   caddy  : TLS + reverse proxy + serves the Flutter web build
+#   api    : REST/WebSocket for the Flutter app, plus the SLA worker
+#   wa     : Baileys WhatsApp sessions (NEVER exposed publicly)
+#   db     : Postgres, the single source of truth
+#
+# Deploy:  cp .env.example .env && edit && docker compose up -d --build
+
+name: analyzer
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Deterministic collation so ORDER BY behaves the same everywhere.
+      POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # Not published to the host: only compose-internal services reach it.
+    expose:
+      - "5432"
+
+  api:
+    build:
+      # Context is `server/`, not `server/api/`: the image also needs
+      # db/migrations, which the API applies on boot.
+      context: .
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      PORT: "3000"
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET}
+      # n8n intake-interview webhook (synchronous). Falls back to the direct
+      # LLM below, then to the scripted interview.
+      N8N_INTAKE_URL: ${N8N_INTAKE_URL:-}
+      # Runs the onboarding interview. Outbound-only, so it works locally.
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4.1-mini}
+      WA_SERVICE_URL: http://wa:3100
+      WORKER_INTERVAL_SECONDS: ${WORKER_INTERVAL_SECONDS:-60}
+      FCM_SERVICE_ACCOUNT_FILE: ${FCM_SERVICE_ACCOUNT_FILE:-}
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+    volumes:
+      # Optional: drop the FCM service-account JSON here to enable push.
+      - ./secrets:/run/secrets:ro
+    expose:
+      - "3000"
+
+  wa:
+    build:
+      context: ./wa
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      PORT: "3100"
+      DATABASE_URL: ${DATABASE_URL}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      N8N_ANALYZE_URL: ${N8N_ANALYZE_URL}
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET}
+      # Where AI verdicts are delivered (the analysis call is synchronous;
+      # this service receives the verdict and hands it to the API itself).
+      API_URL: http://api:3000
+    # Deliberately no `ports:` — a Baileys session holds the keys to somebody's
+    # WhatsApp account. Only `api` may talk to it, over the compose network.
+    expose:
+      - "3100"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      # Set to a bare `:80` for local runs (plain HTTP, no certificate), or to
+      # the public hostname in production, where Caddy gets TLS automatically.
+      APP_DOMAIN: ${APP_DOMAIN}
+    ports:
+      # Host port is configurable because port 80 is contested on Windows —
+      # WSL's relay grabs it but drops connections, and IIS/http.sys often
+      # reserve it too. On a real server leave these at 80/443.
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Flutter web build output goes here: flutter build web -> build/web
+      - ./web:/srv/web:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+networks:
+  default:
+    driver_opts:
+      # Containers must not emit packets larger than the host's uplink can
+      # carry. On a normal server that is 1500 and this changes nothing, but
+      # inside WSL2 (and most VPN/nested-VM setups) the uplink is smaller —
+      # 1420 here. Get this wrong and the failure is silent and awful: DNS and
+      # TLS handshakes succeed, then bulk transfers hang forever, so Baileys
+      # never finishes connecting and no pairing code is ever issued.
+      #
+      # Check the host with:  cat /sys/class/net/eth0/mtu
+      com.docker.network.driver.mtu: ${DOCKER_MTU:-1500}
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

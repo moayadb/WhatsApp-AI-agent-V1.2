@@ -1,0 +1,336 @@
+{
+  "name": "Sanayed — Message Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sanayed-analyze",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-analyze",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        0
+      ],
+      "webhookId": "sanayed-analyze"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Guard + flatten + classify the incoming message for routing.\n//\n// body: { org_prompt, message: { direction, body, media_type, media_base64,\n//         media_mime, sent_at }, contact, detect_*, thread[] }\nconst SECRET = '__N8N_WEBHOOK_SECRET__';\n\nconst item = $input.first().json;\nif ((item.headers ?? {})['x-sanayed-secret'] !== SECRET) {\n  throw new Error('unauthorized');\n}\n\nconst body = item.body ?? item;\nconst msg = body.message ?? {};\nconst mime = String(msg.media_mime ?? '');\nconst hasMedia = Boolean(msg.media_base64);\n\nlet kind = 'text';\nif (hasMedia && mime.startsWith('image/')) kind = 'image';\nelse if (hasMedia && mime.startsWith('audio/')) kind = 'audio';\n\nreturn [{\n  json: {\n    kind,\n    org_prompt: body.org_prompt ?? null,\n    contact: body.contact ?? {},\n    detect_unauthorized_promise: body.detect_unauthorized_promise,\n    detect_off_channel: body.detect_off_channel,\n    message: { direction: msg.direction, body: msg.body, media_type: msg.media_type, sent_at: msg.sent_at },\n    thread: Array.isArray(body.thread) ? body.thread : [],\n    media_base64: hasMedia ? String(msg.media_base64) : '',\n    media_mime: mime,\n  },\n}];"
+      },
+      "id": "code-prepare",
+      "name": "Prepare",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -420,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c-img",
+                    "leftValue": "={{ $json.kind }}",
+                    "rightValue": "image",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "image"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c-aud",
+                    "leftValue": "={{ $json.kind }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "audio"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "switch-kind",
+      "name": "Route by kind",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "media_base64",
+        "options": {
+          "fileName": "voice.ogg",
+          "mimeType": "={{ $json.media_mime || \"audio/ogg\" }}"
+        }
+      },
+      "id": "audio-binary",
+      "name": "Audio to binary",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        20,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/audio/transcriptions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "contentType": "multipart-form-data",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "model",
+              "value": "whisper-1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "http-whisper",
+      "name": "Transcribe voice",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        60
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "IBnnaP7p20gp6YEk",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Assemble the judge request. Reached three ways:\n//   text  -> straight from Prepare\n//   image -> straight from Prepare (the judge model sees the image itself)\n//   audio -> via Whisper, $json.text is the transcription\nconst prep = $('Prepare').first().json;\nconst cur = $input.first().json;\n\nconst kind = prep.kind;\nconst transcript = kind === 'audio' ? String(cur.text ?? '').trim() : '';\n\nconst agent = prep.contact?.agent_name || 'the agent';\nconst client = prep.contact?.display_name || 'the client';\n\nconst lines = (prep.thread ?? []).map((m) => {\n  const who = m.direction === 'in' ? 'Client' : 'Agent';\n  const text = m.transcript || m.body || ('[' + (m.media_type || 'message') + ']');\n  return who + ': ' + text;\n});\n\nconst orgPrompt = prep.org_prompt ||\n  'You review WhatsApp conversations between staff and clients. Alert the manager when a staff member promises something the company may not honour, moves the client off the official channel, or when the client is angry, threatening to leave, or asking for a manager.';\n\nconst disabled = [];\nif (prep.detect_unauthorized_promise === false) disabled.push('unauthorized_promise');\nif (prep.detect_off_channel === false) disabled.push('off_channel');\n\nconst system = orgPrompt + `\n\n---\nOUTPUT CONTRACT (mandatory, overrides anything above about formatting)\n\nYou are judging whether the SALES MANAGER must personally intervene in this conversation. Most messages need nothing: when in doubt, do not alert — a false alarm costs more than a miss, because a noisy feed stops being read.\n\nDo NOT alert for slow replies or silence; those are measured precisely elsewhere.${disabled.length ? '\\nNEVER use these types (disabled by the manager): ' + disabled.join(', ') + '.' : ''}\n\nWrite \"title\" and \"insight\" in the same language the conversation is in. Name the people: the agent is \"${agent}\", the client is \"${client}\"${prep.contact?.is_vip ? ' (VIP client)' : ''}.\n\nRESPOND ONLY WITH JSON:\n{\n  \"needs_attention\": false,\n  \"type\": \"unauthorized_promise\" | \"off_channel\" | \"escalation\" | \"other\",\n  \"severity\": \"urgent\" | \"high\" | \"medium\" | \"low\",\n  \"title\": \"short headline naming who did what\",\n  \"insight\": \"one or two sentences the manager can act on\",\n  \"recommended_action\": \"the single next step\",\n  \"evidence\": { \"quote\": \"the exact words that triggered this, copied verbatim\" },\n  \"media_description\": \"\"\n}\n${kind === 'image' ? '\\n\"media_description\" is REQUIRED here: one factual sentence describing what the attached image shows (including any visible text), in the conversation language — even when needs_attention is false.' : 'Leave \"media_description\" empty.'}\n\nIf nothing requires the manager, return needs_attention: false, leave the other fields empty${kind === 'image' ? ' except media_description' : ''}.`;\n\nconst newestWho = prep.message?.direction === 'in' ? 'Client' : 'Agent';\nlet newest;\nif (kind === 'audio') {\n  newest = newestWho + ' (voice note, transcribed): ' + (transcript || '[unintelligible]');\n} else if (kind === 'image') {\n  newest = newestWho + ' sent the attached image' + (prep.message?.body ? ' with caption: ' + prep.message.body : '') + '.';\n} else {\n  newest = newestWho + ': ' + (prep.message?.body || '[' + (prep.message?.media_type || 'message') + ']');\n}\n\nconst userText = 'Conversation (oldest first):\\n' + lines.join('\\n').slice(-6000) +\n  '\\n\\nNewest message (the one to judge, in context): ' + newest;\n\nconst userContent = kind === 'image'\n  ? [\n      { type: 'text', text: userText },\n      { type: 'image_url', image_url: { url: 'data:' + prep.media_mime + ';base64,' + prep.media_base64 } },\n    ]\n  : userText;\n\nreturn [{\n  json: {\n    kind,\n    transcript,\n    messages: [\n      { role: 'system', content: system },\n      { role: 'user', content: userContent },\n    ],\n  },\n}];"
+      },
+      "id": "code-build",
+      "name": "Build messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4.1-mini', temperature: 0, max_tokens: 1500, response_format: { type: 'json_object' }, messages: $json.messages }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "http-openai",
+      "name": "Model (OpenAI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        0
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "IBnnaP7p20gp6YEk",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse + clamp the verdict, and attach the media transcript/description the\n// app stores on the message row.\nconst built = $('Build messages').first().json;\nconst raw = $input.first().json;\nconst content = raw?.choices?.[0]?.message?.content ?? '';\n\nlet parsed;\ntry {\n  parsed = JSON.parse(content);\n} catch (e) {\n  const start = content.indexOf('{');\n  const end = content.lastIndexOf('}');\n  if (start === -1 || end <= start) {\n    return [{ json: { needs_attention: false, transcript: built.transcript || '' } }];\n  }\n  parsed = JSON.parse(content.slice(start, end + 1));\n}\n\nconst TYPES = ['unauthorized_promise', 'off_channel', 'escalation', 'other'];\nconst SEVERITIES = ['urgent', 'high', 'medium', 'low'];\n\n// audio -> the Whisper transcription; image -> the judge's description.\nconst transcript = built.kind === 'audio'\n  ? (built.transcript || '')\n  : String(parsed.media_description ?? '').slice(0, 2000);\n\nreturn [{\n  json: {\n    needs_attention: parsed.needs_attention === true,\n    type: TYPES.includes(parsed.type) ? parsed.type : 'other',\n    severity: SEVERITIES.includes(parsed.severity) ? parsed.severity : 'medium',\n    title: String(parsed.title ?? '').slice(0, 300),\n    insight: String(parsed.insight ?? '').slice(0, 2000),\n    recommended_action: String(parsed.recommended_action ?? '').slice(0, 1000),\n    evidence: typeof parsed.evidence === 'object' && parsed.evidence !== null ? parsed.evidence : {},\n    transcript,\n  },\n}];"
+      },
+      "id": "code-shape",
+      "name": "Shape verdict",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare": {
+      "main": [
+        [
+          {
+            "node": "Route by kind",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by kind": {
+      "main": [
+        [
+          {
+            "node": "Build messages",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Audio to binary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audio to binary": {
+      "main": [
+        [
+          {
+            "node": "Transcribe voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe voice": {
+      "main": [
+        [
+          {
+            "node": "Build messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build messages": {
+      "main": [
+        [
+          {
+            "node": "Model (OpenAI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model (OpenAI)": {
+      "main": [
+        [
+          {
+            "node": "Shape verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape verdict": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

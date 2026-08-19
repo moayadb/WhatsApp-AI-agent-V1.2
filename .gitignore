@@ -53,3 +53,12 @@ app.*.map.json
 .env
 .env.local
 .runtimeconfig.json
+
+# Server (Node services)
+server/*/node_modules/
+server/*/dist/
+server/.env
+server/web/
+server/secrets/
+server/.env.local
+server/.secrets.local
