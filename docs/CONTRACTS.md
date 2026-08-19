@@ -13,6 +13,8 @@ Sent by `server/wa/src/ingest.ts` → consumed by `n8n/sanayed-analysis.json` ("
 
 ```jsonc
 {
+  "locale": "ar|en",                  // orgs.locale — the manager's app language.
+                                      // ALL model-written text comes back in it.
   "org_prompt": "string|null",        // this org's generated monitoring prompt
   "message": {
     "direction": "in|out",
@@ -124,7 +126,40 @@ Columns with non-obvious meaning:
 
 ---
 
-## 6. Ownership map
+## 6. API ↔ n8n intake workflow
+
+`POST {N8N_INTAKE_URL}` · header `x-sanayed-secret`
+Sent by `server/api/src/intake.ts` → consumed by `n8n/sanayed-intake.json`.
+
+Request:
+
+```jsonc
+{
+  "locale": "ar|en",
+  "transcript": [ { "role": "assistant|user", "text": "string" } ],
+  "mode": "interview|refine",
+  "current_prompt": "string|null"      // the prompt being edited, in refine mode
+}
+```
+
+Response:
+
+```jsonc
+{
+  "reply": "string",                   // what the manager reads
+  "done": bool,
+  "generated_prompt": "string|null",   // complete prompt; null unless done
+  "topics": ["string"],                // 3-6 short labels, manager's language
+  "thresholds": { }                    // only numbers the manager stated
+}
+```
+
+`topics` is what the **app shows**; `generated_prompt` is stored but never
+displayed to the user. Both are regenerated whenever the prompt changes.
+
+---
+
+## 7. Ownership map
 
 Suggested split for parallel work. Anything in the "shared" row needs
 coordination.
@@ -137,3 +172,15 @@ coordination.
 | App | `lib/`, `web/` | contract 4 |
 | Deployment | `server/docker-compose.yml`, `Caddyfile`, `deploy.sh`, `run-local.ps1` | — |
 | **Shared** | `server/db/migrations/` (append-only), `docs/` | — |
+
+---
+
+## Migration ledger
+
+Numbers are allocated by the consultant so two streams cannot claim the same one.
+
+| Number | Owner | Purpose | Status |
+|---|---|---|---|
+| `0001_init.sql` | — | initial schema | applied |
+| `0002_intake_prompt.sql` | — | generated prompt columns | applied |
+| `0003_prompt_topics.sql` | Product | `org_profiles.prompt_topics jsonb NOT NULL DEFAULT '[]'` | allocated |
