@@ -16,11 +16,15 @@ class AnalyzerApi {
 
   /// Journey step 1. Terms and privacy are mandatory — the server records the
   /// timestamp, not a boolean.
+  /// [locale] seeds `orgs.locale`, which is the language every AI-written alert
+  /// comes back in. Sending it here means the very first alert is already in
+  /// the manager's language, before he has opened Settings.
   Future<String> signUp({
     required String fullName,
     required String email,
     required String phone,
     required String password,
+    required String locale,
     String? companyName,
   }) async {
     final json = await client.post('/auth/signup', {
@@ -28,6 +32,7 @@ class AnalyzerApi {
       'email': email,
       'phone_e164': phone,
       'password': password,
+      'locale': locale,
       if (companyName != null && companyName.isNotEmpty)
         'company_name': companyName,
       'accept_terms': true,
@@ -64,11 +69,16 @@ class AnalyzerApi {
   /// [locale] decides the language the interviewer speaks — the questions are
   /// written by a model server-side, so the app has to say which language it
   /// is currently showing.
+  ///
+  /// `topics` is the short list of what the system watches for. The prompt
+  /// behind it stays on the server: it is written for a model, and showing it
+  /// turned a product into a settings file. An empty list means the interview
+  /// has not produced one yet — not that nothing is being watched.
   Future<
     ({
       List<IntakeTurn> transcript,
       bool done,
-      String? generatedPrompt,
+      List<String> topics,
       bool aiEnabled,
     })
   >
@@ -79,16 +89,18 @@ class AnalyzerApi {
           .map((e) => IntakeTurn.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
       done: json['done'] == true,
-      generatedPrompt: json['generated_prompt'] as String?,
+      topics: _topics(json['topics']),
       aiEnabled: json['ai_enabled'] == true,
     );
   }
 
+  /// One turn of the interview — or, once onboarding is done, one change
+  /// request against what the system watches for.
   Future<
     ({
       String reply,
       bool done,
-      String? generatedPrompt,
+      List<String> topics,
       OrgSettings? settings,
     })
   >
@@ -100,26 +112,30 @@ class AnalyzerApi {
     return (
       reply: json['reply'] as String,
       done: json['done'] == true,
-      generatedPrompt: json['generated_prompt'] as String?,
+      topics: _topics(json['topics']),
       settings: json['settings'] == null
           ? null
           : OrgSettings.fromJson(Map<String, dynamic>.from(json['settings'])),
     );
   }
 
-  /// The monitoring prompt is what decides what gets flagged, so the manager
-  /// can rewrite it rather than being stuck with what onboarding produced.
-  Future<String> updatePrompt(String prompt) async {
-    final json = await client.patch('/onboarding/prompt', {
-      'generated_prompt': prompt,
-    });
-    return json['generated_prompt'] as String;
-  }
+  static List<String> _topics(dynamic raw) => raw is List
+      ? raw.whereType<String>().where((t) => t.trim().isNotEmpty).toList()
+      : const [];
 
   Future<OrgSettings> updateSettings(Map<String, dynamic> patch) async {
     final json = await client.patch('/settings', patch);
     return OrgSettings.fromJson(Map<String, dynamic>.from(json));
   }
+
+  /// Tell the server which language the manager reads in.
+  ///
+  /// The app switches language from its own stored preference, instantly and
+  /// offline; this is the copy the analysis workflow uses to decide what
+  /// language to write an alert in — including for an image or a voice note,
+  /// where there is no text to infer a language from.
+  Future<OrgSettings> updateLanguage(String locale) =>
+      updateSettings({'locale': locale});
 
   // ----------------------------------------------------------------- team
 

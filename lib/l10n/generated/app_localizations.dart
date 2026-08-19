@@ -941,13 +941,13 @@ abstract class AppLocalizations {
   /// No description provided for @promptTitle.
   ///
   /// In en, this message translates to:
-  /// **'What the system will watch for'**
+  /// **'What the system watches for'**
   String get promptTitle;
 
   /// No description provided for @promptSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Written from your answers. You can change it later in Settings.'**
+  /// **'Built from your answers. Ask for a change any time.'**
   String get promptSubtitle;
 
   /// No description provided for @promptScriptedNote.
@@ -974,17 +974,41 @@ abstract class AppLocalizations {
   /// **'Ask for a change to what the system watches…'**
   String get refineHint;
 
-  /// No description provided for @editAction.
+  /// No description provided for @topicsPending.
   ///
   /// In en, this message translates to:
-  /// **'Edit'**
-  String get editAction;
+  /// **'Still being written. Monitoring runs from your interview in the meantime.'**
+  String get topicsPending;
 
-  /// No description provided for @promptLoadFailed.
+  /// No description provided for @topicsLoadFailed.
   ///
   /// In en, this message translates to:
-  /// **'Could not load the monitoring text.'**
-  String get promptLoadFailed;
+  /// **'Could not load what the system is watching.'**
+  String get topicsLoadFailed;
+
+  /// No description provided for @refineAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask for a change'**
+  String get refineAction;
+
+  /// No description provided for @refineTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Change what\'s watched'**
+  String get refineTitle;
+
+  /// No description provided for @refineOpeningLine.
+  ///
+  /// In en, this message translates to:
+  /// **'What would you like to change about what the AI watches for?'**
+  String get refineOpeningLine;
+
+  /// No description provided for @languageSyncFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Language changed on this device, but the server could not be told — alerts may keep arriving in the previous language.'**
+  String get languageSyncFailed;
 }
 
 class _AppLocalizationsDelegate

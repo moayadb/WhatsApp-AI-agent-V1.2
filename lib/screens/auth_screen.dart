@@ -57,6 +57,7 @@ class _AuthScreenState extends State<AuthScreen> {
             email: _email.text.trim(),
             phone: _phone.text.trim(),
             password: _password.text,
+            locale: Localizations.localeOf(context).languageCode,
             companyName: _company.text.trim(),
           )
         : await auth.signIn(_email.text.trim(), _password.text);

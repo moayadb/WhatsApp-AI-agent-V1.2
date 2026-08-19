@@ -178,12 +178,16 @@
       }
     }
   },
-  "promptTitle": "What the system will watch for",
-  "promptSubtitle": "Written from your answers. You can change it later in Settings.",
+  "promptTitle": "What the system watches for",
+  "promptSubtitle": "Built from your answers. Ask for a change any time.",
   "promptScriptedNote": "Built without an AI model — connect one to have this written specifically for your business.",
   "thinking": "Thinking…",
   "linkStalled": "WhatsApp has not returned a code. Ask for a new one, and check the number is correct.",
   "refineHint": "Ask for a change to what the system watches…",
-  "editAction": "Edit",
-  "promptLoadFailed": "Could not load the monitoring text."
+  "topicsPending": "Still being written. Monitoring runs from your interview in the meantime.",
+  "topicsLoadFailed": "Could not load what the system is watching.",
+  "refineAction": "Ask for a change",
+  "refineTitle": "Change what's watched",
+  "refineOpeningLine": "What would you like to change about what the AI watches for?",
+  "languageSyncFailed": "Language changed on this device, but the server could not be told — alerts may keep arriving in the previous language."
 }

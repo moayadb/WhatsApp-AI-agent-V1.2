@@ -456,11 +456,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get promptTitle => 'What the system will watch for';
+  String get promptTitle => 'What the system watches for';
 
   @override
   String get promptSubtitle =>
-      'Written from your answers. You can change it later in Settings.';
+      'Built from your answers. Ask for a change any time.';
 
   @override
   String get promptScriptedNote =>
@@ -477,8 +477,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refineHint => 'Ask for a change to what the system watches…';
 
   @override
-  String get editAction => 'Edit';
+  String get topicsPending =>
+      'Still being written. Monitoring runs from your interview in the meantime.';
 
   @override
-  String get promptLoadFailed => 'Could not load the monitoring text.';
+  String get topicsLoadFailed => 'Could not load what the system is watching.';
+
+  @override
+  String get refineAction => 'Ask for a change';
+
+  @override
+  String get refineTitle => 'Change what\'s watched';
+
+  @override
+  String get refineOpeningLine =>
+      'What would you like to change about what the AI watches for?';
+
+  @override
+  String get languageSyncFailed =>
+      'Language changed on this device, but the server could not be told — alerts may keep arriving in the previous language.';
 }

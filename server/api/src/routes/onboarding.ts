@@ -6,6 +6,7 @@ import { env } from '../env';
 import {
   nextTurn,
   openingQuestion,
+  sanitizeTopics,
   type IntakeTurn,
   type RefineContext,
 } from '../intake';
@@ -20,8 +21,13 @@ const aiEnabled = () => llmConfigured() || env.n8nIntakeUrl.length > 0;
  *
  * The transcript lives in `org_profiles.transcript`, and its product is
  * `generated_prompt`: the monitoring instructions written for this specific
- * business, which the analysis agent then follows. Everything here exists to
- * get to that prompt and show it to the manager.
+ * business, which the analysis agent then follows.
+ *
+ * `generated_prompt` never leaves the server. It is written for a model, and a
+ * manager who is shown it starts treating the product as a config file he has
+ * to get right. What the app receives is `prompt_topics` — a few short labels
+ * naming what is being watched — and the way to change them is to ask, which
+ * is the same refine flow this route has always had.
  */
 
 const localeSchema = z.enum(['ar', 'en']).default('ar');
@@ -31,9 +37,10 @@ async function loadProfile(orgId: string) {
     transcript: IntakeTurn[];
     generated_prompt: string | null;
     prompt_source: string | null;
+    prompt_topics: string[];
     completed_at: Date | null;
   }>(
-    `SELECT transcript, generated_prompt, prompt_source, completed_at
+    `SELECT transcript, generated_prompt, prompt_source, prompt_topics, completed_at
        FROM org_profiles WHERE org_id = $1`,
     [orgId],
   );
@@ -65,7 +72,7 @@ export default async function onboardingRoutes(
       return {
         transcript: opening,
         done: false,
-        generated_prompt: null,
+        topics: [],
         ai_enabled: aiEnabled(),
       };
     }
@@ -73,7 +80,9 @@ export default async function onboardingRoutes(
     return {
       transcript,
       done: Boolean(profile?.completed_at),
-      generated_prompt: profile?.generated_prompt ?? null,
+      // Deliberately not `generated_prompt`: see the note at the top of this
+      // file. Empty means "not written yet", never "watching nothing".
+      topics: profile?.prompt_topics ?? [],
       prompt_source: profile?.prompt_source ?? null,
       ai_enabled: aiEnabled(),
     };
@@ -134,16 +143,27 @@ export default async function onboardingRoutes(
               [orgId, turn.generatedPrompt, turn.source],
             );
           }
+          // Topics move independently: a workflow that has not started
+          // returning them yet must leave the manager's existing labels alone
+          // rather than emptying the Settings screen.
+          if (turn.topics.length > 0) {
+            await pool.query(
+              `UPDATE org_profiles SET prompt_topics = $2::jsonb, updated_at = now()
+                WHERE org_id = $1`,
+              [orgId, JSON.stringify(turn.topics)],
+            );
+          }
         } else {
           await pool.query(
             `UPDATE org_profiles SET
                generated_prompt = $2,
                prompt_source = $3,
+               prompt_topics = $4::jsonb,
                prompt_updated_at = now(),
                completed_at = now(),
                updated_at = now()
              WHERE org_id = $1`,
-            [orgId, turn.generatedPrompt, turn.source],
+            [orgId, turn.generatedPrompt, turn.source, JSON.stringify(turn.topics)],
           );
         }
 
@@ -216,13 +236,22 @@ export default async function onboardingRoutes(
         ? await one('SELECT * FROM org_settings WHERE org_id = $1', [orgId])
         : null;
 
+      // Read the labels back rather than echoing the turn: after a refine that
+      // returned none, the truthful answer is the ones still in force.
+      const stored = turn.done
+        ? await one<{ prompt_topics: string[] }>(
+            'SELECT prompt_topics FROM org_profiles WHERE org_id = $1',
+            [orgId],
+          )
+        : null;
+
       return reply.send({
         reply: turn.reply,
         // Once onboarding has completed it stays completed: a refine turn that
         // asks a clarifying question must not flip the app back into
         // interview mode.
         done: refine ? true : turn.done,
-        generated_prompt: turn.generatedPrompt,
+        topics: stored?.prompt_topics ?? profile?.prompt_topics ?? [],
         prompt_source: turn.source,
         transcript,
         settings,
@@ -231,25 +260,39 @@ export default async function onboardingRoutes(
   );
 
   /**
-   * The manager can rewrite the monitoring prompt afterwards. It is the thing
-   * that decides what gets flagged, so it must not be frozen at signup.
+   * Direct rewrite of the monitoring prompt.
+   *
+   * No longer reachable from the app — the manager changes what is watched by
+   * asking for it, and never sees this text. It stays as the support path for
+   * when a prompt has to be fixed by hand.
+   *
+   * `topics` is accepted alongside because they are the manager-facing
+   * description of this prompt: rewriting the prompt without them leaves the
+   * Settings screen describing rules that no longer exist.
    */
   app.patch(
     '/onboarding/prompt',
     { onRequest: [app.authenticate] },
     async (request, reply) => {
       const parsed = z
-        .object({ generated_prompt: z.string().min(20).max(8000) })
+        .object({
+          generated_prompt: z.string().min(20).max(8000),
+          topics: z.array(z.string()).optional(),
+        })
         .safeParse(request.body);
       if (!parsed.success) return reply.code(400).send({ error: 'invalid_input' });
 
       const { orgId } = sessionOf(request);
+      const topics = parsed.data.topics
+        ? sanitizeTopics(parsed.data.topics)
+        : null;
       const { rows } = await pool.query(
         `UPDATE org_profiles SET generated_prompt = $2, prompt_source = 'manual',
+                                 prompt_topics = COALESCE($3::jsonb, prompt_topics),
                                  prompt_updated_at = now(), updated_at = now()
           WHERE org_id = $1
-        RETURNING generated_prompt, prompt_source`,
-        [orgId, parsed.data.generated_prompt],
+        RETURNING generated_prompt, prompt_source, prompt_topics`,
+        [orgId, parsed.data.generated_prompt, topics ? JSON.stringify(topics) : null],
       );
       if (rows.length === 0) return reply.code(404).send({ error: 'not_found' });
       return reply.send(rows[0]);
@@ -269,6 +312,17 @@ export default async function onboardingRoutes(
         detect_unauthorized_promise: z.boolean().optional(),
         detect_off_channel: z.boolean().optional(),
         min_push_severity: z.enum(['urgent', 'high', 'medium', 'low']).optional(),
+        /**
+         * The manager's language. Lives on `orgs`, not `org_settings`, because
+         * it is not a detector setting — but it is changed from the same
+         * screen, and the app has no other moment where it would send it.
+         *
+         * It matters beyond the UI: the analysis workflow writes every alert
+         * title and insight in this language, and for an image or a voice note
+         * there is no message text to infer it from. Left device-local, a
+         * manager who switches to Arabic keeps getting English alerts.
+         */
+        locale: z.enum(['ar', 'en']).optional(),
       });
       const parsed = schema.safeParse(request.body);
       if (!parsed.success) {
@@ -277,10 +331,30 @@ export default async function onboardingRoutes(
           .send({ error: 'invalid_input', details: parsed.error.issues });
       }
 
-      const entries = Object.entries(parsed.data);
-      if (entries.length === 0) return reply.code(400).send({ error: 'empty' });
+      const { locale, ...settingsPatch } = parsed.data;
+      const entries = Object.entries(settingsPatch);
+      if (entries.length === 0 && !locale) {
+        return reply.code(400).send({ error: 'empty' });
+      }
 
       const { orgId } = sessionOf(request);
+
+      if (locale) {
+        await pool.query('UPDATE orgs SET locale = $2 WHERE id = $1', [
+          orgId,
+          locale,
+        ]);
+      }
+
+      // A language-only change still answers with the settings row, so the
+      // client has one shape to decode either way.
+      if (entries.length === 0) {
+        const current = await one('SELECT * FROM org_settings WHERE org_id = $1', [
+          orgId,
+        ]);
+        return reply.send(current);
+      }
+
       const sets = entries.map(([key], i) => `${key} = $${i + 2}`).join(', ');
       const { rows } = await pool.query(
         `UPDATE org_settings SET ${sets}, updated_at = now()

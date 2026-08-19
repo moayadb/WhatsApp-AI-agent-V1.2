@@ -8,8 +8,8 @@ import '../services/analyzer_api.dart';
 ///
 /// The interviewer is a model running server-side, so the app's job is only to
 /// relay turns and to say which language it is currently displaying. What comes
-/// back at the end is the monitoring prompt written for this business, which is
-/// the whole point of the conversation.
+/// back at the end is [topics]: the short list of what the system will now
+/// watch for. The monitoring prompt those topics summarise stays on the server.
 class OnboardingProvider extends ChangeNotifier {
   OnboardingProvider(this._api);
 
@@ -20,7 +20,7 @@ class OnboardingProvider extends ChangeNotifier {
   bool _sending = false;
   bool _done = false;
   String? _errorCode;
-  String? _generatedPrompt;
+  List<String> _topics = const [];
   bool _aiEnabled = false;
   OrgSettings? _settings;
 
@@ -30,8 +30,9 @@ class OnboardingProvider extends ChangeNotifier {
   bool get done => _done;
   String? get errorCode => _errorCode;
 
-  /// The monitoring instructions the interview produced, shown to the manager.
-  String? get generatedPrompt => _generatedPrompt;
+  /// What the system will watch for, in a few words each. Empty until the
+  /// interview finishes — and empty is "not decided yet", not "nothing".
+  List<String> get topics => _topics;
 
   /// False when no model is configured and the scripted interview is running.
   bool get aiEnabled => _aiEnabled;
@@ -47,7 +48,7 @@ class OnboardingProvider extends ChangeNotifier {
       final result = await _api.intake(locale);
       _turns = result.transcript;
       _done = result.done;
-      _generatedPrompt = result.generatedPrompt;
+      _topics = result.topics;
       _aiEnabled = result.aiEnabled;
     } on ApiException catch (error) {
       _errorCode = error.code;
@@ -72,7 +73,9 @@ class OnboardingProvider extends ChangeNotifier {
       final result = await _api.answerIntake(trimmed, locale);
       _turns = [..._turns, IntakeTurn(fromAssistant: true, text: result.reply)];
       _done = result.done;
-      _generatedPrompt = result.generatedPrompt ?? _generatedPrompt;
+      // A turn that returned nothing leaves the existing labels standing; the
+      // server only sends an empty list when there genuinely are none yet.
+      if (result.topics.isNotEmpty) _topics = result.topics;
       _settings = result.settings;
     } on ApiException catch (error) {
       _errorCode = error.code;

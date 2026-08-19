@@ -449,11 +449,11 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get promptTitle => 'ما الذي سيراقبه النظام';
+  String get promptTitle => 'ما الذي يراقبه النظام';
 
   @override
   String get promptSubtitle =>
-      'مكتوب من إجاباتك. يمكنك تعديله لاحقًا من الإعدادات.';
+      'مبني على إجاباتك. يمكنك طلب أي تعديل في أي وقت.';
 
   @override
   String get promptScriptedNote =>
@@ -470,8 +470,23 @@ class AppLocalizationsAr extends AppLocalizations {
   String get refineHint => 'اطلب تعديلاً على ما يراقبه النظام…';
 
   @override
-  String get editAction => 'تعديل';
+  String get topicsPending =>
+      'قيد الإعداد. المراقبة تعمل بناءً على مقابلتك في هذه الأثناء.';
 
   @override
-  String get promptLoadFailed => 'تعذّر تحميل نص المراقبة.';
+  String get topicsLoadFailed => 'تعذّر تحميل ما يراقبه النظام.';
+
+  @override
+  String get refineAction => 'اطلب تعديلاً';
+
+  @override
+  String get refineTitle => 'تعديل ما يُراقب';
+
+  @override
+  String get refineOpeningLine =>
+      'ما الذي تريد تعديله في محرك الذكاء الاصطناعي؟';
+
+  @override
+  String get languageSyncFailed =>
+      'تم تغيير اللغة على هذا الجهاز، لكن تعذّر إبلاغ الخادم — قد تستمر التنبيهات بالوصول باللغة السابقة.';
 }

@@ -8,9 +8,12 @@ import { logger } from './logger';
  * The point is not to collect answers into fields. It is to end up with a
  * monitoring prompt written for THIS business: the manager describes what he
  * sells, what goes wrong, and what he wants to be dragged into, and the model
- * turns that into the instructions the analysis agent will follow. That
- * generated prompt is shown back to him, because a manager who cannot see what
- * the system was told will not trust what it flags.
+ * turns that into the instructions the analysis agent will follow.
+ *
+ * He never sees that prompt. What he sees is `topics` — a handful of short
+ * labels naming what is being watched — and if he wants something different he
+ * asks for it in conversation. The prompt is the engine; the topics are the
+ * dashboard light that proves the engine is running on his business.
  */
 
 export interface IntakeTurn {
@@ -23,6 +26,12 @@ export interface IntakeResult {
   done: boolean;
   /** Filled only on the final turn. */
   generatedPrompt: string | null;
+  /**
+   * Short labels naming what the prompt watches for — the manager-facing view
+   * of `generatedPrompt`, which he never sees. Empty means "not known yet",
+   * never "nothing is being watched".
+   */
+  topics: string[];
   /** Thresholds the model inferred from the conversation. */
   thresholds: {
     first_response_minutes?: number;
@@ -112,14 +121,22 @@ this structure, with clear section headings, in the manager's language:
    manager's priorities.
 
 Each rule must be concrete enough that two different readers would flag the
-same messages. The manager will read this prompt — make it something he
-recognises as his own business, not a generic template.
+same messages. The manager never reads this prompt — he reads "topics" below —
+so write it for the analysis agent, not as something to be admired.
+
+TOPICS
+Alongside the prompt, return "topics": 3 to 6 very short labels, in the
+manager's language, naming what is now being watched — two to four words each,
+no sentences, no punctuation. They are the ONLY part of your output the manager
+sees, so they must cover the alert rules honestly: if a rule exists, a topic
+names it. Example shape: ["Late first reply", "Unapproved discounts"].
 
 RESPOND ONLY WITH JSON:
 {
   "reply": "what you say to them now, in the manager's language",
   "done": false,
   "generated_prompt": null,
+  "topics": [],
   "thresholds": {}
 }
 
@@ -132,7 +149,27 @@ interface RawIntake {
   reply?: string;
   done?: boolean;
   generated_prompt?: string | null;
+  topics?: unknown;
   thresholds?: IntakeResult['thresholds'];
+}
+
+/**
+ * Clamp whatever the workflow sent into a list the Settings screen can render.
+ *
+ * These labels go straight onto chips, so length is a layout constraint rather
+ * than a validation nicety, and a model that returns twelve of them must not
+ * turn the screen into a wall of text.
+ */
+export function sanitizeTopics(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const text = item.trim().replace(/\s+/g, ' ').slice(0, 60);
+    if (text) seen.add(text);
+    if (seen.size === 6) break;
+  }
+  return [...seen];
 }
 
 /**
@@ -209,6 +246,28 @@ ${answers}
 التعامل معه اليوم؛ متوسط خلال الأسبوع؛ منخفض للعلم فقط.`;
 }
 
+/**
+ * The topics for `fallbackPrompt`. Hardcoded because that prompt is hardcoded:
+ * these labels are true by construction, which is the only reason it is safe
+ * to show them without a model having read the business.
+ */
+const FALLBACK_TOPICS: Record<string, string[]> = {
+  en: [
+    'Late first reply',
+    'Conversations gone quiet',
+    'Promises we may not honour',
+    'Clients taken off-channel',
+    'Angry or leaving clients',
+  ],
+  ar: [
+    'تأخر الرد الأول',
+    'محادثات سكتت',
+    'وعود قد لا نلتزم بها',
+    'نقل العميل خارج القناة',
+    'عميل غاضب أو على وشك المغادرة',
+  ],
+};
+
 function scriptedTurn(locale: string, transcript: IntakeTurn[]): IntakeResult {
   const script = FALLBACK[locale] ?? FALLBACK.ar;
   const answered = transcript.filter((t) => t.role === 'user').length;
@@ -220,6 +279,7 @@ function scriptedTurn(locale: string, transcript: IntakeTurn[]): IntakeResult {
       reply: next,
       done: false,
       generatedPrompt: null,
+      topics: [],
       thresholds: {},
       source: 'script',
     };
@@ -232,6 +292,7 @@ function scriptedTurn(locale: string, transcript: IntakeTurn[]): IntakeResult {
       : 'شكرًا، هذا كل ما احتجته. هذا ما سيعتمده النظام، ويمكنك تعديله لاحقًا من الإعدادات.',
     done: true,
     generatedPrompt: fallbackPrompt(locale, transcript),
+    topics: FALLBACK_TOPICS[locale] ?? FALLBACK_TOPICS.ar,
     thresholds: minutes ? { first_response_minutes: minutes } : {},
     source: 'script',
   };
@@ -320,8 +381,12 @@ RESPOND ONLY WITH JSON:
   "reply": "one short sentence confirming what changed, in the manager's language",
   "done": true,
   "generated_prompt": "the complete updated prompt",
+  "topics": ["3 to 6 short labels for the UPDATED prompt, manager's language"],
   "thresholds": {}
 }
+
+"topics" is what the manager actually sees in the app, so return the full list
+for the updated prompt every time — not just the topic that changed.
 
 Include a threshold (first_response_minutes, cold_lead_hours) ONLY if the
 manager explicitly changed that number.`;
@@ -336,18 +401,23 @@ function shapeModelTurn(
 ): IntakeResult {
   const done = raw.done === true;
   let generatedPrompt: string | null = null;
+  let topics = done ? sanitizeTopics(raw.topics) : [];
   if (done) {
     // In refine mode a missing prompt means "keep the old one" — never fall
     // back to the generic template over an existing tailored prompt.
     generatedPrompt = raw.generated_prompt?.trim() || null;
     if (!generatedPrompt && !refine) {
       generatedPrompt = fallbackPrompt(locale, transcript);
+      // The prompt is the generic one now, so the topics must describe THAT
+      // and not whatever the model said about a business it failed to write up.
+      topics = FALLBACK_TOPICS[locale] ?? FALLBACK_TOPICS.ar;
     }
   }
   return {
     reply,
     done,
     generatedPrompt,
+    topics,
     thresholds: raw.thresholds ?? {},
     source: 'llm',
   };
@@ -369,15 +439,17 @@ export async function nextTurn(
 
   if (!llmConfigured()) {
     if (refine) {
-      // Refining needs a model. Without one, leave the prompt untouched and
-      // point at the manual editor rather than mangling it with a script.
+      // Refining needs a model. Without one, say so and leave the prompt
+      // untouched rather than mangling it with a script — there is no manual
+      // editor to fall back to any more.
       return {
         reply:
           locale === 'en'
-            ? 'The AI assistant is unavailable right now — you can edit the monitoring text directly in Settings instead.'
-            : 'المساعد الذكي غير متاح حاليًا — يمكنك تعديل نص المراقبة مباشرةً من الإعدادات.',
+            ? 'The assistant is unavailable right now, so nothing has changed. Try again in a few minutes.'
+            : 'المساعد غير متاح حاليًا، ولم يتغيّر شيء. حاول مرة أخرى بعد قليل.',
         done: false,
         generatedPrompt: null,
+        topics: [],
         thresholds: {},
         source: 'script',
       };
@@ -409,10 +481,11 @@ export async function nextTurn(
       return {
         reply:
           locale === 'en'
-            ? 'The AI assistant is unavailable right now — try again shortly, or edit the text directly in Settings.'
-            : 'المساعد الذكي غير متاح حاليًا — حاول بعد قليل أو عدّل النص مباشرةً من الإعدادات.',
+            ? 'The assistant is unavailable right now, so nothing has changed. Try again in a few minutes.'
+            : 'المساعد غير متاح حاليًا، ولم يتغيّر شيء. حاول مرة أخرى بعد قليل.',
         done: false,
         generatedPrompt: null,
+        topics: [],
         thresholds: {},
         source: 'script',
       };

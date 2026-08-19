@@ -88,11 +88,16 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// [locale] is the language the app is showing at signup. It seeds
+  /// `orgs.locale`, which the analysis workflow writes alerts in — so the first
+  /// alert arrives in the right language without the manager having to visit
+  /// Settings to set one.
   Future<bool> signUp({
     required String fullName,
     required String email,
     required String phone,
     required String password,
+    required String locale,
     String? companyName,
   }) =>
       _authenticate(
@@ -101,6 +106,7 @@ class AuthProvider extends ChangeNotifier {
           email: email,
           phone: phone,
           password: password,
+          locale: locale,
           companyName: companyName,
         ),
       );

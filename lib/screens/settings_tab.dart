@@ -7,6 +7,8 @@ import '../models/alert.dart';
 import '../providers/auth_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/analyzer_api.dart';
+import '../widgets/topic_chips.dart';
+import 'refine_screen.dart';
 
 /// Where the manager tunes what onboarding decided for him.
 ///
@@ -38,10 +40,10 @@ class SettingsTab extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // The monitoring prompt — what the AI actually watches for. Editable
-          // here directly, and refinable conversationally from the intake chat.
+          // What the AI watches for, as topics. The prompt behind them is not
+          // shown and not editable here — it is changed by asking.
           _Section(title: l10n.promptTitle),
-          const _MonitoringPromptCard(),
+          const _WatchingCard(),
           const SizedBox(height: 20),
 
           if (settings != null) ...[
@@ -150,7 +152,7 @@ class SettingsTab extends StatelessWidget {
             child: RadioGroup<String>(
               groupValue: prefs.locale.languageCode,
               onChanged: (code) =>
-                  code == null ? null : prefs.setLocale(Locale(code)),
+                  code == null ? null : _saveLanguage(context, code),
               child: Column(
                 children: [
                   RadioListTile<String>(
@@ -180,6 +182,35 @@ class SettingsTab extends StatelessWidget {
     );
   }
 
+  /// Language is two things at once.
+  ///
+  /// For the app it is a device preference: it switches immediately, works
+  /// offline, and does not follow the manager to another phone. For the AI it
+  /// is org state — the analysis workflow writes every alert title and insight
+  /// in `orgs.locale`, and for an image or a voice note there is no message
+  /// text to infer a language from. So the UI changes first and the server is
+  /// told after; if that call fails, the manager is told his alerts may keep
+  /// arriving in the old language rather than being left to discover it.
+  static Future<void> _saveLanguage(BuildContext context, String code) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final api = context.read<AnalyzerApi>();
+    final auth = context.read<AuthProvider>();
+
+    await context.read<SettingsProvider>().setLocale(Locale(code));
+
+    try {
+      await api.updateLanguage(code);
+      await auth.refresh();
+    } catch (_) {
+      // Resolved against the language just chosen, not the one being left.
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(lookupAppLocalizations(Locale(code)).languageSyncFailed),
+        ),
+      );
+    }
+  }
+
   static Future<void> _save(
     BuildContext context,
     Map<String, dynamic> patch,
@@ -198,21 +229,22 @@ class SettingsTab extends StatelessWidget {
   }
 }
 
-/// The generated monitoring prompt: view + direct manual editing.
+/// What the system is watching for, and the one way to change it.
 ///
-/// This is the "brain" the analysis agent runs on, produced by the onboarding
-/// interview. The manager can rewrite it here at any time — the next analysed
-/// message uses the new text immediately, since the wa service reads it from
-/// the database on every call.
-class _MonitoringPromptCard extends StatefulWidget {
-  const _MonitoringPromptCard();
+/// The monitoring prompt behind these topics is the brain the analysis agent
+/// runs on, and it stays on the server. Showing it here made the manager
+/// responsible for a piece of model-facing text he had no way to judge; the
+/// honest surface is the list of things being watched, plus a conversation
+/// when that list is wrong.
+class _WatchingCard extends StatefulWidget {
+  const _WatchingCard();
 
   @override
-  State<_MonitoringPromptCard> createState() => _MonitoringPromptCardState();
+  State<_WatchingCard> createState() => _WatchingCardState();
 }
 
-class _MonitoringPromptCardState extends State<_MonitoringPromptCard> {
-  String? _prompt;
+class _WatchingCardState extends State<_WatchingCard> {
+  List<String> _topics = const [];
   bool _loading = true;
   bool _failed = false;
 
@@ -224,11 +256,15 @@ class _MonitoringPromptCardState extends State<_MonitoringPromptCard> {
 
   Future<void> _load() async {
     final locale = Localizations.localeOf(context).languageCode;
+    setState(() {
+      _loading = true;
+      _failed = false;
+    });
     try {
       final result = await context.read<AnalyzerApi>().intake(locale);
       if (!mounted) return;
       setState(() {
-        _prompt = result.generatedPrompt;
+        _topics = result.topics;
         _loading = false;
       });
     } catch (_) {
@@ -240,54 +276,12 @@ class _MonitoringPromptCardState extends State<_MonitoringPromptCard> {
     }
   }
 
-  Future<void> _edit() async {
-    final l10n = AppLocalizations.of(context);
-    final controller = TextEditingController(text: _prompt ?? '');
-
-    final updated = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.promptTitle),
-        content: SizedBox(
-          width: 560,
-          child: TextField(
-            controller: controller,
-            autofocus: true,
-            minLines: 8,
-            maxLines: 18,
-            decoration: const InputDecoration(border: OutlineInputBorder()),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(l10n.cancelAction),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text.trim()),
-            child: Text(l10n.doneAction),
-          ),
-        ],
-      ),
+  Future<void> _refine() async {
+    final updated = await Navigator.of(context).push<List<String>>(
+      MaterialPageRoute(builder: (_) => RefineScreen(topics: _topics)),
     );
-
-    if (updated == null || updated.length < 20 || updated == _prompt) return;
-    if (!mounted) return;
-
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      final saved = await context.read<AnalyzerApi>().updatePrompt(updated);
-      if (!mounted) return;
-      setState(() => _prompt = saved);
-      messenger.showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).savedToast)),
-      );
-    } catch (_) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).errGeneric)),
-      );
-    }
+    if (!mounted || updated == null) return;
+    setState(() => _topics = updated);
   }
 
   @override
@@ -312,25 +306,27 @@ class _MonitoringPromptCardState extends State<_MonitoringPromptCard> {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    _failed
-                        ? l10n.promptLoadFailed
-                        : (_prompt ?? l10n.promptScriptedNote),
-                    style: theme.textTheme.bodySmall?.copyWith(height: 1.5),
-                    maxLines: 8,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  if (_failed)
+                    Text(
+                      l10n.topicsLoadFailed,
+                      style: theme.textTheme.bodySmall?.copyWith(height: 1.5),
+                    )
+                  else
+                    TopicChips(topics: _topics),
                   const SizedBox(height: 4),
                   Align(
                     alignment: AlignmentDirectional.centerEnd,
+                    // Failure keeps the retry: offering "change what's watched"
+                    // when we could not read what IS watched invites a change
+                    // request made blind.
                     child: TextButton.icon(
-                      onPressed: _failed ? _load : _edit,
+                      onPressed: _failed ? _load : _refine,
                       icon: Icon(
-                        _failed ? Icons.refresh : Icons.edit_outlined,
+                        _failed ? Icons.refresh : Icons.chat_bubble_outline,
                         size: 18,
                       ),
                       label: Text(
-                        _failed ? l10n.retryAction : l10n.editAction,
+                        _failed ? l10n.retryAction : l10n.refineAction,
                       ),
                     ),
                   ),
