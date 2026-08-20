@@ -28,6 +28,122 @@ Heads-up:  anything the other stream or the runbook should know.
 
 ---
 
+### 2026-08-20 — push wiring and the first Android build
+
+**Task 1 — app-side push.** `Firebase.initializeApp` now runs in `main()`,
+skipped outright on web and wrapped in a try/catch everywhere else: a phone
+without Play Services, or a bad config, loses notifications and keeps a working
+app. `PushService` only acts once `markAvailable()` has been called, so the web
+build touches no Firebase plugin at all.
+
+Registration happens when a session exists — after sign-in *and* after a
+restored session, since a returning manager's phone should be receiving alerts
+too. Both calls are `unawaited`: `requestPermission()` raises the Android 13
+system dialog and can sit there for as long as he takes to read it, and the
+launch screen must not wait behind that.
+
+Sign-out calls `DELETE /api/devices/:token` **before** clearing the session
+token — the delete is authenticated, and a row left behind means the next
+person to sign in on that phone gets the previous org's alerts. `PushService`
+remembers the exact token it registered rather than guessing. It also nulls its
+token before awaiting, which is what stops the re-entrancy when a 401 triggers
+`signOut()` from inside an API call that then 401s again.
+
+Notification tap: `onMessageOpenedApp` plus `getInitialMessage()` (the
+cold-start case), both landing on the Alerts tab. The selected tab moved out of
+`Shell`'s State into `lib/state/shell_controller.dart`, because a push now gets
+to choose it and the choice can be made before any route exists. The payload
+already carries `data.alert_id`, so deep-linking to the individual alert is a
+later change with no server work.
+
+Server side: the API now says at boot whether push is configured. "No
+notifications arrived" and "no notifications were sent" look identical from the
+outside, and that line is the difference.
+
+**Task 2 — Android build.** Release APK builds and is signed with the real
+upload key. Nothing needed fixing beyond the notification permission: minSdk
+resolves to 24 and targetSdk to 36, and no plugin complained.
+
+```
+flutter build apk --release --dart-define=API_BASE_URL=https://<domain>
+```
+
+Artifact: `build/app/outputs/flutter-apk/app-release.apk` (55.9 MB).
+
+`POST_NOTIFICATIONS` is now declared in `AndroidManifest.xml`. The messaging
+AAR merges it in anyway, but the entire product is a notification, so it is
+declared where someone reading the manifest will see it.
+
+**Verified**
+
+- Boot log with no credential: `push disabled: no FCM service account
+  configured` — clean, once, no per-alert noise.
+- `POST /api/devices` writes the row; `DELETE /api/devices/:token` removes it.
+  Tested with a realistic FCM-shaped token containing a colon, so the
+  percent-encoding survives Fastify's param decoding.
+- Merged release manifest carries `POST_NOTIFICATIONS` and
+  `FirebaseMessagingService`; minSdk 24 / targetSdk 36.
+- `apksigner` reports Signer #1 `CN=mouayad balloul, O=sanayad tech` — the
+  upload key, not the debug key. SHA-1 `23e0697c…4d52f6e2`, if you ever add a
+  Google service that needs the fingerprint registered (FCM does not).
+- Web still builds with Firebase guarded out.
+- `flutter test` 11 passing; `flutter analyze` 5 issues, all the pre-existing
+  `prefer_initializing_formals` family (now five, because `_push` joined the
+  constructor). Same unfixable lint as last round.
+
+**Not verified — and I cannot be the one to close these**
+
+- **Delivery.** No `FCM_SERVICE_ACCOUNT_FILE`, so nothing has ever been sent.
+  Everything up to the send is proven; the send itself is not.
+- **The runtime permission prompt, and tap-to-open.** Both need the APK on a
+  physical Android 13+ device. I built it; I did not install it.
+- **The APK cannot currently reach any API.** There is no deployed origin —
+  `server/.env` still has `APP_DOMAIN=:80` — so I built against a placeholder
+  host. `usesCleartextTraffic="false"` also means an `http://192.168.x.x:8081`
+  LAN address will be blocked, so a phone cannot be pointed at this machine
+  without either TLS or a debug-only network-security-config. See the question.
+
+**Also done: last round's pending backfill is closed.** `mode: "topics"` is live
+now. Probed it three times against the same prompt — stable, accurate labels.
+The dev database currently has **0** orgs with a prompt and no topics (7 of 7
+prompts have labels), so the real run reported `{"scanned":0,"filled":0,
+"failed":0}`. To prove the path rather than the emptiness, I seeded one org with
+a prompt and no topics: `{"scanned":1,"filled":1,"failed":0}` and the labels
+described that prompt. Separately confirmed the A1 invariant's success path,
+which I could only half-test last round: `PATCH /onboarding/prompt` with a new
+prompt about refunds and cancellations regenerated the topics to match, and the
+old labels about late replies are gone.
+
+**Question**
+
+1. **What domain should the APK be built against?** Mine is built against a
+   placeholder, so it must be rebuilt before it goes to anyone. And if the plan
+   is to test against this Windows box over the office wifi rather than a
+   deployed host, say so — that needs a debug-only network-security-config,
+   which I did not add unasked because it weakens the artifact if it leaks into
+   release.
+2. Contract 4 in `docs/CONTRACTS.md` is now four rounds stale, and this round
+   adds `DELETE /api/devices/:token` to the app's surface. Still happy to write
+   it if you want it off your desk.
+
+**Heads-up**
+
+- **`psql -c` on this machine silently destroys non-ASCII.** Seeding an Arabic
+  prompt that way stored `?????` and I nearly filed a bug against the topics
+  workflow for "hallucinating" — it was faithfully describing question marks.
+  `psql -f file.sql` is fine. Candidate for `docs/DECISIONS.md` if you agree.
+- For the pipeline stream, from that accident: given meaningless input,
+  `mode: "topics"` invents confident, plausible, unrelated labels rather than
+  returning nothing. Same family as the "analyst leans toward matching a rule"
+  note already in DECISIONS. Nothing to fix today; worth knowing.
+- Test data: one signup org created and deleted. Orgs back to 8, `devices`
+  empty, `wa_auth_state` untouched.
+- `build/web` was rebuilt again by the guard check, so the bundle on :8081 is
+  current with this commit — but the API on :3000 is still the pre-push build
+  and needs a restart to log its push status.
+
+---
+
 ### 2026-08-20 — UX correctness round (A1–A3, B1–B4, C1–C6)
 
 **A1 — topics can no longer lie about the prompt.** All writes to

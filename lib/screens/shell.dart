@@ -5,6 +5,7 @@ import '../l10n/generated/app_localizations.dart';
 import '../providers/alerts_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/settings_provider.dart';
+import '../state/shell_controller.dart';
 import 'alerts_tab.dart';
 import 'board_tab.dart';
 import 'settings_tab.dart';
@@ -14,21 +15,19 @@ import 'team_tab.dart';
 ///
 /// Alerts is first because that is the reason the app gets opened — the board
 /// is what the manager checks before a meeting, not every morning.
-class Shell extends StatefulWidget {
+///
+/// The selected tab is held in [ShellController] rather than in this State,
+/// because a push notification also gets to choose it.
+class Shell extends StatelessWidget {
   const Shell({super.key});
-
-  @override
-  State<Shell> createState() => _ShellState();
-}
-
-class _ShellState extends State<Shell> {
-  int _index = 0;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final openCount = context.watch<AlertsProvider>().openCount;
     final org = context.watch<AuthProvider>().org;
+    final shell = context.watch<ShellController>();
+    final index = shell.index;
 
     final titles = [
       l10n.tabAlerts,
@@ -42,8 +41,8 @@ class _ShellState extends State<Shell> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(titles[_index]),
-            if (org != null && _index != 3)
+            Text(titles[index]),
+            if (org != null && index != 3)
               Text(
                 org.name,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -55,12 +54,12 @@ class _ShellState extends State<Shell> {
         actions: const [_ThemeToggle(), SizedBox(width: 4)],
       ),
       body: IndexedStack(
-        index: _index,
+        index: index,
         children: const [AlertsTab(), TeamTab(), BoardTab(), SettingsTab()],
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (index) => setState(() => _index = index),
+        selectedIndex: index,
+        onDestinationSelected: shell.select,
         destinations: [
           NavigationDestination(
             icon: Badge.count(

@@ -29,9 +29,31 @@ function base64url(value: object | Buffer): string {
   return buffer.toString('base64url');
 }
 
+/**
+ * Whether a service account is configured at all.
+ *
+ * Push is optional infrastructure: the product works without it, the manager
+ * just has to open the app himself. But "no notifications arrived" and "no
+ * notifications were sent" look identical from the outside, so the boot log
+ * says which one this deployment is.
+ */
+export function pushConfigured(): boolean {
+  return env.fcmServiceAccountFile.length > 0;
+}
+
+let disabledLogged = false;
+
 async function loadAccount(): Promise<ServiceAccount | null> {
   if (account) return account;
-  if (!env.fcmServiceAccountFile) return null;
+  if (!env.fcmServiceAccountFile) {
+    if (!disabledLogged) {
+      disabledLogged = true;
+      logger.info(
+        'push disabled: FCM_SERVICE_ACCOUNT_FILE is not set; alerts will not be pushed',
+      );
+    }
+    return null;
+  }
   try {
     account = JSON.parse(
       await readFile(env.fcmServiceAccountFile, 'utf8'),

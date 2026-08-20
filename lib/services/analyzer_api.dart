@@ -64,6 +64,14 @@ class AnalyzerApi {
   Future<void> registerDevice(String token, String platform) =>
       client.post('/devices', {'token': token, 'platform': platform});
 
+  /// Drop this install's push token.
+  ///
+  /// Called on sign-out: the phone stays in the manager's pocket, and the next
+  /// person to sign in on it belongs to a different org. An FCM token contains
+  /// a colon, so it is encoded rather than pasted into the path.
+  Future<void> deleteDevice(String token) =>
+      client.delete('/devices/${Uri.encodeComponent(token)}');
+
   // ------------------------------------------------------------ onboarding
 
   /// [locale] decides the language the interviewer speaks — the questions are

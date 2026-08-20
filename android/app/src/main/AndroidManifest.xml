@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Android 13+ will not show a single notification until the user grants
+         this at runtime. FirebaseMessaging.requestPermission() raises that
+         prompt, but only if the permission is declared here first. Declared
+         explicitly rather than relying on the messaging AAR's manifest merge,
+         because the entire product is a notification. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:label="Sanayed"
         android:name="${applicationName}"

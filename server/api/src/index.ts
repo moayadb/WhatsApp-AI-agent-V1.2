@@ -9,6 +9,7 @@ import { pool } from './db';
 import { env } from './env';
 import { logger } from './logger';
 import { migrate } from './migrate';
+import { pushConfigured } from './push';
 import { addClient, removeClient } from './realtime';
 import agentRoutes from './routes/agents';
 import alertRoutes from './routes/alerts';
@@ -122,6 +123,14 @@ async function main(): Promise<void> {
   await build();
   await app.listen({ port: env.port, host: '0.0.0.0' });
   logger.info({ port: env.port }, 'api listening');
+  // Says out loud which deployment this is. Silence from a push-less box is
+  // indistinguishable from silence from a broken one.
+  logger.info(
+    { push: pushConfigured() ? 'enabled' : 'disabled' },
+    pushConfigured()
+      ? 'push notifications configured'
+      : 'push disabled: no FCM service account configured',
+  );
   startWorker();
 }
 

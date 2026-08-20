@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/api_client.dart';
 import '../models/app_user.dart';
 import '../services/analyzer_api.dart';
+import '../services/push_service.dart';
 import '../services/realtime_service.dart';
 
 /// Where the app should send the user once they are signed in.
@@ -27,10 +30,12 @@ class AuthProvider extends ChangeNotifier {
     required ApiClient client,
     required AnalyzerApi api,
     required RealtimeService realtime,
+    required PushService push,
     required SharedPreferences prefs,
   })  : _client = client,
         _api = api,
         _realtime = realtime,
+        _push = push,
         _prefs = prefs {
     // A token the server no longer accepts must not leave the user staring at
     // a screen that fails to load.
@@ -44,6 +49,7 @@ class AuthProvider extends ChangeNotifier {
   final ApiClient _client;
   final AnalyzerApi _api;
   final RealtimeService _realtime;
+  final PushService _push;
   final SharedPreferences _prefs;
 
   SessionStage _stage = SessionStage.restoring;
@@ -74,6 +80,10 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _loadSession();
       _realtime.connect(token);
+      // Not awaited: registration asks for a system permission and can sit on
+      // a dialog for as long as the manager takes to read it. The launch
+      // screen must not wait behind that.
+      unawaited(_push.register());
     } on ApiException catch (error) {
       // Offline at launch should not log anybody out; only a rejected token
       // should.
@@ -125,6 +135,7 @@ class AuthProvider extends ChangeNotifier {
       _client.token = token;
       await _loadSession();
       _realtime.connect(token);
+      unawaited(_push.register());
       return true;
     } on ApiException catch (error) {
       _errorCode = error.code;
@@ -169,6 +180,11 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    // Before the token is cleared: the DELETE is authenticated, and a phone
+    // that keeps its row keeps receiving this org's alerts after the next
+    // person signs in on it.
+    await _push.unregister();
+
     _realtime.disconnect();
     await _prefs.remove(_tokenKey);
     _client.token = null;
