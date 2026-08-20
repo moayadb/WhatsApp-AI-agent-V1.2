@@ -42,20 +42,26 @@ void main() {
   );
 
   group('timer alerts render from evidence', () {
-    test('an SLA alert written in Arabic reads in English when the app does', () {
-      final breach = alert(
-        type: AlertType.slaBreach,
-        evidence: {'waited_minutes': 90, 'threshold_minutes': 15},
-        agentName: 'خالد',
-        title: 'خالد لم يرد على عميل',
-        insight: 'في الانتظار منذ 90 دقيقة — الحد المسموح 15 دقيقة.',
-      );
+    test(
+      'an SLA alert written in Arabic reads in English when the app does',
+      () {
+        final breach = alert(
+          type: AlertType.slaBreach,
+          evidence: {'waited_minutes': 90, 'threshold_minutes': 15},
+          agentName: 'خالد',
+          title: 'خالد لم يرد على عميل',
+          insight: 'في الانتظار منذ 90 دقيقة — الحد المسموح 15 دقيقة.',
+        );
 
-      expect(en.alertInsight(breach), 'Waiting 90 min — threshold is 15 min.');
-      expect(en.alertTitle(breach), 'خالد has not replied to عميل');
-      // The stored Arabic prose is not what got displayed.
-      expect(en.alertInsight(breach), isNot(breach.insight));
-    });
+        expect(
+          en.alertInsight(breach),
+          'Waiting 90 min — threshold is 15 min.',
+        );
+        expect(en.alertTitle(breach), 'خالد has not replied to عميل');
+        // The stored Arabic prose is not what got displayed.
+        expect(en.alertInsight(breach), isNot(breach.insight));
+      },
+    );
 
     test('and in Arabic when the app is Arabic', () {
       final breach = alert(

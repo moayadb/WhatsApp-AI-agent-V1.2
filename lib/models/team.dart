@@ -89,7 +89,9 @@ class Channel {
     linkMethod: json['link_method'] == null
         ? null
         : LinkMethod.parse(json['link_method'] as String?),
-    lastConnectedAt: DateTime.tryParse('${json['last_connected_at']}')?.toLocal(),
+    lastConnectedAt: DateTime.tryParse(
+      '${json['last_connected_at']}',
+    )?.toLocal(),
     lastError: json['last_error'] as String?,
     conversationCount: int.tryParse('${json['conversation_count'] ?? 0}') ?? 0,
   );
@@ -152,7 +154,8 @@ class Agent {
     name: (json['name'] as String?) ?? '',
     email: json['email'] as String?,
     active: json['active'] != false,
-    channels: (json['channels'] as List?)
+    channels:
+        (json['channels'] as List?)
             ?.map((e) => Channel.fromJson(Map<String, dynamic>.from(e)))
             .toList() ??
         const [],

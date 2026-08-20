@@ -237,5 +237,9 @@
   "attentionGuidance": "Reconnect it from the agent phone: WhatsApp → Linked devices → Link a device.",
   "boardNotMonitoredBody": "Nothing is measured while this number is disconnected.",
   "themeToDark": "Switch to dark",
-  "themeToLight": "Switch to light"
+  "themeToLight": "Switch to light",
+  "filterIgnored": "Ignored",
+  "alertsLoadFailed": "Could not load your alerts",
+  "alertLoadFailed": "Could not load this alert",
+  "themeModeTitle": "Theme"
 }

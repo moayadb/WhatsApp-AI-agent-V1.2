@@ -106,7 +106,11 @@ void main() {
     final isolated = bidiIsolate(phone);
 
     expect(isolated.codeUnitAt(0), 0x2068, reason: 'opens with FSI');
-    expect(isolated.codeUnitAt(isolated.length - 1), 0x2069, reason: 'closes with PDI');
+    expect(
+      isolated.codeUnitAt(isolated.length - 1),
+      0x2069,
+      reason: 'closes with PDI',
+    );
     expect(isolated.substring(1, isolated.length - 1), phone);
   });
 

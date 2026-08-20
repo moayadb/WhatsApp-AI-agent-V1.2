@@ -162,5 +162,9 @@
   "attentionGuidance": "أعد ربطه من هاتف الموظف: واتساب ← الأجهزة المرتبطة ← ربط جهاز.",
   "boardNotMonitoredBody": "لا يوجد قياس ما دام هذا الرقم غير متصل.",
   "themeToDark": "التبديل إلى الداكن",
-  "themeToLight": "التبديل إلى الفاتح"
+  "themeToLight": "التبديل إلى الفاتح",
+  "filterIgnored": "متجاهَل",
+  "alertsLoadFailed": "تعذّر تحميل التنبيهات",
+  "alertLoadFailed": "تعذّر تحميل هذا التنبيه",
+  "themeModeTitle": "المظهر"
 }

@@ -77,7 +77,14 @@ extension AlertLabels on AppLocalizations {
   /// Falls back to the server text when the numbers are missing — alerts
   /// written before the evidence carried them still have to render.
   String? alertInsight(Alert alert) {
-    int? number(String key) => (alert.evidence[key] as num?)?.round();
+    // Read, not cast. `evidence` is free-form jsonb written by two different
+    // producers, and a cast that throws here throws inside a build method —
+    // which is a red screen, not a missing sentence.
+    int? number(String key) {
+      final value = alert.evidence[key];
+      if (value is num) return value.round();
+      return int.tryParse('$value');
+    }
 
     switch (alert.type) {
       case AlertType.slaBreach:

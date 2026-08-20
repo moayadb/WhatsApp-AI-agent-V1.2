@@ -86,7 +86,8 @@ class OrgSettings {
   final int? quietHoursEnd;
 
   factory OrgSettings.fromJson(Map<String, dynamic> json) => OrgSettings(
-    firstResponseMinutes: (json['first_response_minutes'] as num?)?.toInt() ?? 15,
+    firstResponseMinutes:
+        (json['first_response_minutes'] as num?)?.toInt() ?? 15,
     vipFirstResponseMinutes:
         (json['vip_first_response_minutes'] as num?)?.toInt() ?? 5,
     coldLeadHours: (json['cold_lead_hours'] as num?)?.toInt() ?? 48,

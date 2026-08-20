@@ -14,10 +14,16 @@ class SettingsProvider extends ChangeNotifier {
 
   final SharedPreferences _prefs;
 
+  /// Dark unless the manager says otherwise.
+  ///
+  /// Not a neutral default: the product's look is black and yellow, dark is
+  /// how it was designed, and the app is opened most often at the end of a day
+  /// rather than the start of one. `system` remains available, it is just no
+  /// longer what an untouched install gets.
   ThemeMode get themeMode => switch (_prefs.getString(_themeKey)) {
     'light' => ThemeMode.light,
-    'dark' => ThemeMode.dark,
-    _ => ThemeMode.system,
+    'system' => ThemeMode.system,
+    _ => ThemeMode.dark,
   };
 
   /// Arabic first — the users are in Dubai.

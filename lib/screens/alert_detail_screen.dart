@@ -9,6 +9,8 @@ import '../providers/alerts_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/alert_triage.dart';
 import '../widgets/auto_direction_text.dart';
+import '../widgets/content_width.dart';
+import '../widgets/states.dart';
 
 /// The alert, plus the conversation that produced it.
 ///
@@ -34,12 +36,17 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
   }
 
   Future<void> _load() async {
-    final alert = await context.read<AlertsProvider>().detail(widget.alertId);
-    if (!mounted) return;
-    setState(() {
-      _alert = alert;
-      _loading = false;
-    });
+    if (!_loading) setState(() => _loading = true);
+    try {
+      final alert = await context.read<AlertsProvider>().detail(widget.alertId);
+      if (!mounted) return;
+      setState(() => _alert = alert);
+    } finally {
+      // In `finally` because the spinner outliving the request is the failure
+      // the manager actually reported: a screen that never resolves and never
+      // says why.
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   /// Triage from the detail screen behaves exactly as it does in the feed —
@@ -72,129 +79,149 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : alert == null
-          ? Center(child: Text(l10n.errGeneric))
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-              children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _Tag(
-                      text: l10n.alertType(alert.type),
-                      color: AppColors.alertType(alert.type),
-                    ),
-                    _Tag(
-                      text: l10n.severity(alert.severity),
-                      color: AppColors.priority(alert.severity),
-                    ),
-                    if (alert.isVip)
+          // Not a bare error string: a dead end with no way forward is how a
+          // transient network blip turns into "the app is broken".
+          ? ErrorState(
+              title: l10n.alertLoadFailed,
+              detail: l10n.apiError(context.read<AlertsProvider>().errorCode),
+              retryLabel: l10n.retryAction,
+              onRetry: _load,
+            )
+          : ContentWidth(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
                       _Tag(
-                        text: l10n.vipTag,
-                        color: theme.colorScheme.tertiary,
+                        text: l10n.alertType(alert.type),
+                        color: AppColors.alertType(alert.type),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                AutoDirectionText(
-                  l10n.alertTitle(alert),
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
+                      _Tag(
+                        text: l10n.severity(alert.severity),
+                        color: AppColors.priority(alert.severity),
+                      ),
+                      if (alert.isVip)
+                        _Tag(
+                          text: l10n.vipTag,
+                          color: theme.colorScheme.tertiary,
+                        ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  timeago.format(alert.eventAt, locale: locale),
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-                _Row(
-                  icon: Icons.person_outline,
-                  label: l10n.agentLabel,
-                  value: l10n.alertAgent(alert),
-                ),
-                _Row(
-                  icon: Icons.chat_bubble_outline,
-                  label: l10n.clientLabel,
-                  value: alert.clientLabel,
-                ),
-                const SizedBox(height: 20),
-
-                if (l10n.alertInsight(alert) != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: AutoDirectionText(
-                      l10n.alertInsight(alert)!,
-                      style: theme.textTheme.bodyLarge,
+                  AutoDirectionText(
+                    l10n.alertTitle(alert),
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                ],
-
-                if (alert.recommendedAction != null) ...[
+                  const SizedBox(height: 8),
                   Text(
-                    l10n.recommendedAction,
+                    timeago.format(alert.eventAt, locale: locale),
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  _Row(
+                    icon: Icons.person_outline,
+                    label: l10n.agentLabel,
+                    value: l10n.alertAgent(alert),
+                  ),
+                  _Row(
+                    icon: Icons.chat_bubble_outline,
+                    label: l10n.clientLabel,
+                    value: alert.clientLabel,
+                  ),
+                  const SizedBox(height: 20),
+
+                  if (l10n.alertInsight(alert) != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: AutoDirectionText(
+                        l10n.alertInsight(alert)!,
+                        style: theme.textTheme.bodyLarge,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  if (alert.recommendedAction != null) ...[
+                    Text(
+                      l10n.recommendedAction,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    AutoDirectionText(
+                      alert.recommendedAction!,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  Text(
+                    l10n.conversationLabel,
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  AutoDirectionText(
-                    alert.recommendedAction!,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 8),
+                  if (alert.thread.isEmpty)
+                    Text(l10n.noThread, style: theme.textTheme.bodySmall)
+                  else
+                    ...alert.thread.map((m) => _Message(message: m)),
                 ],
-
-                Text(
-                  l10n.conversationLabel,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (alert.thread.isEmpty)
-                  Text(l10n.noThread, style: theme.textTheme.bodySmall)
-                else
-                  ...alert.thread.map((m) => _Message(message: m)),
-              ],
+              ),
             ),
       bottomNavigationBar: alert == null
           ? null
           : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _ignore,
-                        child: Text(l10n.markIgnored),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: FilledButton.icon(
-                        onPressed:
-                            alert.status == AlertStatus.isNew ? _handle : _reopen,
-                        icon: const Icon(Icons.check),
-                        label: Text(
-                          alert.status == AlertStatus.isNew
-                              ? l10n.markDone
-                              : l10n.reopen,
+              child: ContentWidth(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ConstrainedBox(
+                          // A single button spanning half a desktop window is a
+                          // target you cannot miss and would rather not hit.
+                          constraints: const BoxConstraints(maxWidth: 360),
+                          child: OutlinedButton(
+                            onPressed: _ignore,
+                            child: Text(l10n.markIgnored),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 360),
+                          child: FilledButton.icon(
+                            onPressed: alert.status == AlertStatus.isNew
+                                ? _handle
+                                : _reopen,
+                            icon: const Icon(Icons.check),
+                            label: Text(
+                              alert.status == AlertStatus.isNew
+                                  ? l10n.markDone
+                                  : l10n.reopen,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -210,7 +237,7 @@ class _Tag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.12),
       borderRadius: BorderRadius.circular(8),
@@ -240,7 +267,7 @@ class _Row extends StatelessWidget {
       child: Row(
         children: [
           Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Text(
             '$label: ',
             style: theme.textTheme.bodyMedium?.copyWith(
@@ -278,7 +305,7 @@ class _Message extends StatelessWidget {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 420),
         margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: fromClient
               ? theme.colorScheme.surfaceContainerHighest

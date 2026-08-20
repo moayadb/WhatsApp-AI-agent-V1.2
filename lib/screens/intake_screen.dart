@@ -5,6 +5,7 @@ import '../l10n/generated/app_localizations.dart';
 import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/onboarding_provider.dart';
+import '../widgets/content_width.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/topic_chips.dart';
 
@@ -75,7 +76,7 @@ class _IntakeScreenState extends State<IntakeScreen> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(28),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: Align(
               alignment: AlignmentDirectional.centerStart,
               child: Text(
@@ -88,75 +89,79 @@ class _IntakeScreenState extends State<IntakeScreen> {
           ),
         ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: intake.loading && intake.turns.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    controller: _scroll,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: intake.turns.length + (intake.sending ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index >= intake.turns.length) {
-                        return const TypingBubble();
-                      }
-                      final turn = intake.turns[index];
-                      return ChatBubble(
-                        text: turn.text,
-                        fromAssistant: turn.fromAssistant,
-                      );
-                    },
-                  ),
-          ),
-
-          if (intake.done)
-            _DoneFooter(
-              settings: intake.settings,
-              topics: intake.topics,
-              aiEnabled: intake.aiEnabled,
+      body: ContentWidth(
+        child: Column(
+          children: [
+            Expanded(
+              child: intake.loading && intake.turns.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.builder(
+                      controller: _scroll,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: intake.turns.length + (intake.sending ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index >= intake.turns.length) {
+                          return const TypingBubble();
+                        }
+                        final turn = intake.turns[index];
+                        return ChatBubble(
+                          text: turn.text,
+                          fromAssistant: turn.fromAssistant,
+                        );
+                      },
+                    ),
             ),
-          // The input never goes away: once the interview is done, whatever
-          // the manager types becomes a change request against the generated
-          // prompt ("also alert me when…"), applied by the model and shown
-          // back immediately in the footer above.
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _input,
-                      minLines: 1,
-                      maxLines: 4,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _send(),
-                      decoration: InputDecoration(
-                        hintText: intake.done ? l10n.refineHint : l10n.intakeHint,
-                        filled: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
+
+            if (intake.done)
+              _DoneFooter(
+                settings: intake.settings,
+                topics: intake.topics,
+                aiEnabled: intake.aiEnabled,
+              ),
+            // The input never goes away: once the interview is done, whatever
+            // the manager types becomes a change request against the generated
+            // prompt ("also alert me when…"), applied by the model and shown
+            // back immediately in the footer above.
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _input,
+                        minLines: 1,
+                        maxLines: 4,
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) => _send(),
+                        decoration: InputDecoration(
+                          hintText: intake.done
+                              ? l10n.refineHint
+                              : l10n.intakeHint,
+                          filled: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    onPressed: intake.sending ? null : _send,
-                    icon: const Icon(Icons.send_rounded),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      onPressed: intake.sending ? null : _send,
+                      icon: const Icon(Icons.send_rounded),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -253,7 +258,7 @@ class _DoneFooter extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Flexible(
               child: SingleChildScrollView(child: TopicChips(topics: topics)),
             ),

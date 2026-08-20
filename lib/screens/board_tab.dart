@@ -6,6 +6,7 @@ import '../models/team.dart';
 import '../providers/dashboard_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/auto_direction_text.dart';
+import '../widgets/content_width.dart';
 import '../widgets/states.dart';
 import 'link_number_sheet.dart';
 
@@ -35,51 +36,53 @@ class _BoardTabState extends State<BoardTab> {
     final board = context.watch<DashboardProvider>();
 
     return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: () => board.load(),
-        child: board.loading && board.board.isEmpty
-            ? const SkeletonList()
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _Tile(
-                          value: '${board.waitingNow}',
-                          label: l10n.boardWaiting,
-                          highlight: board.waitingNow > 0,
+      body: ContentWidth(
+        child: RefreshIndicator(
+          onRefresh: () => board.load(),
+          child: board.loading && board.board.isEmpty
+              ? const SkeletonList()
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _Tile(
+                            value: '${board.waitingNow}',
+                            label: l10n.boardWaiting,
+                            highlight: board.waitingNow > 0,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _Tile(
-                          value: _duration(board.medianFirstResponseMs, l10n),
-                          label: l10n.boardMedian,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _Tile(
+                            value: _duration(board.medianFirstResponseMs, l10n),
+                            label: l10n.boardMedian,
+                          ),
                         ),
+                      ],
+                    ),
+                    if (board.unmonitoredAgents > 0) ...[
+                      const SizedBox(height: 12),
+                      _Tile(
+                        value: '${board.unmonitoredAgents}',
+                        label: l10n.boardUnmonitored,
+                        highlight: true,
                       ),
                     ],
-                  ),
-                  if (board.unmonitoredAgents > 0) ...[
-                    const SizedBox(height: 12),
-                    _Tile(
-                      value: '${board.unmonitoredAgents}',
-                      label: l10n.boardUnmonitored,
-                      highlight: true,
-                    ),
-                  ],
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                  if (board.board.isEmpty)
-                    EmptyState(
-                      icon: Icons.leaderboard_outlined,
-                      title: l10n.boardEmptyTitle,
-                      body: l10n.boardEmptyBody,
-                    )
-                  else
-                    ...board.board.map((agent) => _AgentRow(agent: agent)),
-                ],
-              ),
+                    if (board.board.isEmpty)
+                      EmptyState(
+                        icon: Icons.leaderboard_outlined,
+                        title: l10n.boardEmptyTitle,
+                        body: l10n.boardEmptyBody,
+                      )
+                    else
+                      ...board.board.map((agent) => _AgentRow(agent: agent)),
+                  ],
+                ),
+        ),
       ),
     );
   }
@@ -151,9 +154,9 @@ class _AgentRow extends StatelessWidget {
     final waiting = agent.waitingNow > 0;
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -173,7 +176,7 @@ class _AgentRow extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
-                      vertical: 3,
+                      vertical: 4,
                     ),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.errorContainer,

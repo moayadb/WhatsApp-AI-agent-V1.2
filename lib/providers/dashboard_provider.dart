@@ -32,11 +32,9 @@ class DashboardProvider extends ChangeNotifier {
       _board.where((a) => a.linkedNumbers > 0 && !a.isMonitored).length;
 
   int? get medianFirstResponseMs {
-    final values = _board
-        .map((a) => a.medianFirstResponseMs)
-        .whereType<int>()
-        .toList()
-      ..sort();
+    final values =
+        _board.map((a) => a.medianFirstResponseMs).whereType<int>().toList()
+          ..sort();
     if (values.isEmpty) return null;
     return values[values.length ~/ 2];
   }

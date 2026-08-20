@@ -147,34 +147,42 @@ class Alert {
     completedAt: json['completed_at'] == null
         ? null
         : _date(json['completed_at']),
-    handlingMs: (json['handling_ms'] as num?)?.toInt(),
-    thread: (json['thread'] as List?)
+    // Parsed from its string form rather than cast. The server now sends a
+    // JSON number, but this field arrived as a quoted bigint for weeks and the
+    // cast threw, which took down the entire list rather than one row. One
+    // unreadable field is worth losing; a feed is not.
+    handlingMs: int.tryParse('${json['handling_ms']}'),
+    thread:
+        (json['thread'] as List?)
             ?.map((e) => ThreadMessage.fromJson(Map<String, dynamic>.from(e)))
             .toList() ??
         const [],
   );
 
-  Alert copyWith({AlertStatus? status, DateTime? completedAt, int? handlingMs}) =>
-      Alert(
-        id: id,
-        type: type,
-        severity: severity,
-        status: status ?? this.status,
-        title: title,
-        eventAt: eventAt,
-        insight: insight,
-        recommendedAction: recommendedAction,
-        evidence: evidence,
-        agentId: agentId,
-        agentName: agentName,
-        contactName: contactName,
-        contactPhone: contactPhone,
-        isVip: isVip,
-        conversationId: conversationId,
-        completedAt: completedAt ?? this.completedAt,
-        handlingMs: handlingMs ?? this.handlingMs,
-        thread: thread,
-      );
+  Alert copyWith({
+    AlertStatus? status,
+    DateTime? completedAt,
+    int? handlingMs,
+  }) => Alert(
+    id: id,
+    type: type,
+    severity: severity,
+    status: status ?? this.status,
+    title: title,
+    eventAt: eventAt,
+    insight: insight,
+    recommendedAction: recommendedAction,
+    evidence: evidence,
+    agentId: agentId,
+    agentName: agentName,
+    contactName: contactName,
+    contactPhone: contactPhone,
+    isVip: isVip,
+    conversationId: conversationId,
+    completedAt: completedAt ?? this.completedAt,
+    handlingMs: handlingMs ?? this.handlingMs,
+    thread: thread,
+  );
 }
 
 /// A message in the conversation behind an alert.

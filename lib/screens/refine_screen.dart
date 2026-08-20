@@ -5,6 +5,7 @@ import '../core/api_client.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../l10n/labels.dart';
 import '../services/analyzer_api.dart';
+import '../widgets/content_width.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/topic_chips.dart';
 
@@ -114,87 +115,89 @@ class _RefineScreenState extends State<RefineScreen> {
       },
       child: Scaffold(
         appBar: AppBar(title: Text(l10n.refineTitle)),
-        body: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    l10n.promptTitle,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TopicChips(topics: _topics),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView.builder(
-                controller: _scroll,
-                padding: const EdgeInsets.all(16),
-                itemCount: _turns.length + 1 + (_sending ? 1 : 0),
-                itemBuilder: (context, index) {
-                  // The screen opens mid-conversation on purpose: the question
-                  // is already asked, so there is nothing to work out before
-                  // typing.
-                  if (index == 0) {
-                    return ChatBubble(
-                      text: l10n.refineOpeningLine,
-                      fromAssistant: true,
-                    );
-                  }
-                  if (index > _turns.length) return const TypingBubble();
-                  final turn = _turns[index - 1];
-                  return ChatBubble(
-                    text: turn.text,
-                    fromAssistant: turn.fromAssistant,
-                  );
-                },
-              ),
-            ),
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                child: Row(
+        body: ContentWidth(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _input,
-                        autofocus: true,
-                        minLines: 1,
-                        maxLines: 4,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _send(),
-                        decoration: InputDecoration(
-                          hintText: l10n.refineHint,
-                          filled: true,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 12,
-                          ),
-                        ),
+                    Text(
+                      l10n.promptTitle,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    IconButton.filled(
-                      onPressed: _sending ? null : _send,
-                      icon: const Icon(Icons.send_rounded),
-                    ),
+                    const SizedBox(height: 8),
+                    TopicChips(topics: _topics),
                   ],
                 ),
               ),
-            ),
-          ],
+              const Divider(height: 1),
+              Expanded(
+                child: ListView.builder(
+                  controller: _scroll,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _turns.length + 1 + (_sending ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    // The screen opens mid-conversation on purpose: the question
+                    // is already asked, so there is nothing to work out before
+                    // typing.
+                    if (index == 0) {
+                      return ChatBubble(
+                        text: l10n.refineOpeningLine,
+                        fromAssistant: true,
+                      );
+                    }
+                    if (index > _turns.length) return const TypingBubble();
+                    final turn = _turns[index - 1];
+                    return ChatBubble(
+                      text: turn.text,
+                      fromAssistant: turn.fromAssistant,
+                    );
+                  },
+                ),
+              ),
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _input,
+                          autofocus: true,
+                          minLines: 1,
+                          maxLines: 4,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _send(),
+                          decoration: InputDecoration(
+                            hintText: l10n.refineHint,
+                            filled: true,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton.filled(
+                        onPressed: _sending ? null : _send,
+                        icon: const Icon(Icons.send_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

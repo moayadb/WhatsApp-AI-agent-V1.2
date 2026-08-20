@@ -540,4 +540,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get themeToLight => 'Switch to light';
+
+  @override
+  String get filterIgnored => 'Ignored';
+
+  @override
+  String get alertsLoadFailed => 'Could not load your alerts';
+
+  @override
+  String get alertLoadFailed => 'Could not load this alert';
+
+  @override
+  String get themeModeTitle => 'Theme';
 }

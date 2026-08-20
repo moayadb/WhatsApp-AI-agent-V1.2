@@ -105,12 +105,7 @@ class AnalyzerApi {
   /// One turn of the interview — or, once onboarding is done, one change
   /// request against what the system watches for.
   Future<
-    ({
-      String reply,
-      bool done,
-      List<String> topics,
-      OrgSettings? settings,
-    })
+    ({String reply, bool done, List<String> topics, OrgSettings? settings})
   >
   answerIntake(String text, String locale) async {
     final json = await client.post('/onboarding/message', {
@@ -149,13 +144,17 @@ class AnalyzerApi {
 
   Future<List<Agent>> agents() async {
     final json = await client.get('/agents') as List;
-    return json.map((e) => Agent.fromJson(Map<String, dynamic>.from(e))).toList();
+    return json
+        .map((e) => Agent.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
   /// Journey step 3: the whole team at once, by name.
   Future<List<Agent>> addAgents(List<String> names) async {
     final json = await client.post('/agents/bulk', {'names': names}) as List;
-    return json.map((e) => Agent.fromJson(Map<String, dynamic>.from(e))).toList();
+    return json
+        .map((e) => Agent.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
   Future<void> removeAgent(String id) => client.delete('/agents/$id');
@@ -202,7 +201,11 @@ class AnalyzerApi {
   }
 
   /// Codes expire after about a minute; this issues a fresh one.
-  Future<LinkState> relink(String channelId, LinkMethod method, [String? phone]) async {
+  Future<LinkState> relink(
+    String channelId,
+    LinkMethod method, [
+    String? phone,
+  ]) async {
     final json = await client.post('/channels/$channelId/relink', {
       'method': method.wire,
       'phone_e164': ?phone,
@@ -224,13 +227,17 @@ class AnalyzerApi {
     String? agentId,
     int limit = 50,
   }) async {
-    final json = await client.get('/alerts', {
-      if (status != null) 'status': status.wire,
-      if (type != null) 'type': _typeWire(type),
-      'agent_id': ?agentId,
-      'limit': limit,
-    }) as List;
-    return json.map((e) => Alert.fromJson(Map<String, dynamic>.from(e))).toList();
+    final json =
+        await client.get('/alerts', {
+              if (status != null) 'status': status.wire,
+              if (type != null) 'type': _typeWire(type),
+              'agent_id': ?agentId,
+              'limit': limit,
+            })
+            as List;
+    return json
+        .map((e) => Alert.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
   Future<Alert> alert(String id) async {

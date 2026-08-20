@@ -18,12 +18,7 @@ import '../providers/team_provider.dart';
 /// read out eight characters over the phone and the number is linked. The QR
 /// path is there for when they are in the same room.
 class LinkNumberSheet extends StatefulWidget {
-  const LinkNumberSheet({
-    super.key,
-    this.agentId,
-    this.agentName,
-    this.phone,
-  });
+  const LinkNumberSheet({super.key, this.agentId, this.agentName, this.phone});
 
   /// Null means the manager is linking his own number, which onboarding allows.
   final String? agentId;
@@ -43,11 +38,8 @@ class LinkNumberSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => LinkNumberSheet(
-        agentId: agentId,
-        agentName: agentName,
-        phone: phone,
-      ),
+      builder: (_) =>
+          LinkNumberSheet(agentId: agentId, agentName: agentName, phone: phone),
     );
   }
 
@@ -170,7 +162,10 @@ class _LinkNumberSheetState extends State<LinkNumberSheet> {
               // pending QR fell through to the pairing-code panel, so the user
               // stared at a spinner inside a box captioned "type this code".
               else if (_method == LinkMethod.qr)
-                _QrPanel(state: state, onRefresh: () => team.refreshCode(_method))
+                _QrPanel(
+                  state: state,
+                  onRefresh: () => team.refreshCode(_method),
+                )
               else
                 _CodePanel(
                   state: state,
@@ -384,7 +379,9 @@ class _CodePanelState extends State<_CodePanel> {
                   ),
                 const SizedBox(height: 8),
                 Text(
-                  expired ? '—' : '0:${_secondsLeft.toString().padLeft(2, '0')}',
+                  expired
+                      ? '—'
+                      : '0:${_secondsLeft.toString().padLeft(2, '0')}',
                   textDirection: TextDirection.ltr,
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: expired
@@ -422,7 +419,7 @@ class _CodePanelState extends State<_CodePanel> {
                   size: 18,
                   color: theme.colorScheme.onErrorContainer,
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     widget.state.lastError ?? l10n.linkStalled,
@@ -439,11 +436,11 @@ class _CodePanelState extends State<_CodePanel> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const SizedBox(
-                height: 14,
-                width: 14,
+                height: 16,
+                width: 16,
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Text(l10n.statusPairing, style: theme.textTheme.bodySmall),
             ],
           ),
@@ -583,8 +580,8 @@ class _Step extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            height: 22,
-            width: 22,
+            height: 24,
+            width: 24,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerHighest,

@@ -55,14 +55,38 @@ abstract final class AlertTriage {
       builder: (dialogContext) => AlertDialog(
         title: Text(l10n.ignoreConfirmTitle),
         content: Text(l10n.ignoreConfirmBody),
+        // One Row of two equal buttons instead of Material's action list.
+        //
+        // The theme gives filled and outlined buttons a full-width minimum,
+        // which is right on a form and wrong in a dialog: the confirm button
+        // claimed the whole line, the cancel wrapped above it, and the pair
+        // read as two unrelated decisions stacked vertically. Expanded halves
+        // keep them side by side and the same size, which is also what makes
+        // them mirror correctly in Arabic.
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l10n.cancelAction),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(l10n.markIgnored),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                  child: Text(l10n.cancelAction),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                  child: Text(l10n.markIgnored),
+                ),
+              ),
+            ],
           ),
         ],
       ),

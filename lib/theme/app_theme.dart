@@ -2,29 +2,60 @@ import 'package:flutter/material.dart';
 
 import '../models/alert.dart';
 
-/// Visual identity (spec §16, my call):
+/// Visual identity: black and yellow.
 ///
-/// Deep emerald primary — WhatsApp-adjacent so the domain reads instantly,
-/// but darker and desaturated so it feels like a SaaS product, not a chat
-/// clone. Warm neutrals instead of pure grey. Priority uses the universal
-/// red/amber/blue traffic idiom; category charts get a distinct categorical
-/// ramp. Cards are flat with hairline borders — elevation is reserved for
-/// things that float (sheets, dialogs).
+/// The emerald palette read as a WhatsApp clone, which is the opposite of what
+/// this product is — the manager is not chatting, he is being told when to
+/// intervene. Near-black with a single high-voltage yellow is an instrument
+/// panel: everything recedes except the thing asking for attention.
+///
+/// Dark is the hero look and the default. Light exists because a phone in
+/// Dubai sunlight is a real place this app gets used, and it is the same
+/// design with the values inverted — not a second identity.
+///
+/// Yellow is a *fill behind black text*, never a text colour on a light
+/// background: at 4.5:1 it fails contrast against white, and this app has
+/// exactly one job that depends on being readable.
 abstract final class AppColors {
-  static const emerald = Color(0xFF047857); // primary
-  static const emeraldDark = Color(0xFF34D399); // primary on dark
+  /// The accent. One colour, used sparingly, always with black on top.
+  static const yellow = Color(0xFFFFD617);
 
-  static const priorityUrgent = Color(0xFFB91C1C); // deep red — above high
-  static const priorityHigh = Color(0xFFEA580C); // orange-red
-  static const priorityMedium = Color(0xFFD97706); // amber
-  static const priorityLow = Color(0xFF2563EB); // blue
+  /// Near-black rather than pure black: OLED true black makes card edges
+  /// disappear entirely, and this UI is made of cards.
+  static const black = Color(0xFF0A0A0A);
+
+  /// Card surface in dark.
+  static const surfaceDark = Color(0xFF1C1C1E);
+
+  /// Inner/secondary surface — a level below a card.
+  static const surfaceDarkSunken = Color(0xFF111113);
+
+  /// Input fills and secondary buttons.
+  static const surfaceDarkRaised = Color(0xFF2C2C2E);
+
+  /// Secondary text in dark, and unselected navigation items.
+  static const mutedDark = Color(0xFF9A9A9E);
+
+  static const backgroundLight = Color(0xFFF7F7F5);
+  static const hairlineLight = Color(0xFFE7E5E0);
+
+  /// Priority keeps the universal traffic idiom — these carry meaning that
+  /// survives a rebrand, and a manager who learns "red is now" should not have
+  /// to relearn it.
+  static const priorityUrgent = Color(0xFFB91C1C);
+  static const priorityHigh = Color(0xFFEA580C);
+
+  /// Darkened from amber: next to the accent, the old #D97706 read as a dim
+  /// version of the brand yellow rather than as a severity.
+  static const priorityMedium = Color(0xFFB45309);
+  static const priorityLow = Color(0xFF2563EB);
   static const priorityUnknown = Color(0xFF6B7280);
 
   /// Categorical ramp for the donut chart — distinct at small sizes.
   static const categorical = <Color>[
-    Color(0xFF047857), // emerald
+    yellow,
     Color(0xFF2563EB), // blue
-    Color(0xFFD97706), // amber
+    Color(0xFFB45309), // amber, matching priorityMedium
     Color(0xFFDB2777), // pink
     Color(0xFF7C3AED), // violet
     Color(0xFF0891B2), // cyan
@@ -50,6 +81,11 @@ abstract final class AppColors {
     AlertType.escalation => priorityHigh,
     AlertType.other => priorityUnknown,
   };
+
+  /// Status colour for a linked number. Green survives here on purpose: it is
+  /// the one place in the app that means "working", and yellow means
+  /// "attention" everywhere else.
+  static const connected = Color(0xFF34D399);
 }
 
 abstract final class AppTheme {
@@ -63,18 +99,40 @@ abstract final class AppTheme {
 
   static const _fallback = ['Roboto', 'Segoe UI', 'Arial'];
 
+  /// Pill buttons and 24pt cards. The radius does most of the rebrand's work:
+  /// it is what stops a black UI reading as a terminal.
+  static const _pill = 999.0;
+  static const _cardRadius = 24.0;
+
   static ThemeData light() => _build(Brightness.light);
   static ThemeData dark() => _build(Brightness.dark);
 
   static ThemeData _build(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
-    final scheme = ColorScheme.fromSeed(
-      seedColor: AppColors.emerald,
-      brightness: brightness,
-      // Warm neutral surfaces; near-black (not pure black) in dark mode.
-      surface: isDark ? const Color(0xFF111614) : const Color(0xFFFAFAF8),
-      primary: isDark ? AppColors.emeraldDark : AppColors.emerald,
-    );
+
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.yellow,
+          brightness: brightness,
+        ).copyWith(
+          primary: AppColors.yellow,
+          // Black on yellow, in both themes. This is the rule the whole
+          // palette hangs off.
+          onPrimary: Colors.black,
+          surface: isDark ? AppColors.black : AppColors.backgroundLight,
+          onSurface: isDark ? Colors.white : Colors.black,
+          onSurfaceVariant: isDark
+              ? AppColors.mutedDark
+              : const Color(0xFF5F5F5A),
+          surfaceContainerHighest: isDark
+              ? AppColors.surfaceDarkRaised
+              : const Color(0xFFEDEDE9),
+          surfaceContainerHigh: isDark ? AppColors.surfaceDark : Colors.white,
+          surfaceContainer: isDark ? AppColors.surfaceDarkSunken : Colors.white,
+          outline: isDark
+              ? AppColors.surfaceDarkRaised
+              : AppColors.hairlineLight,
+        );
 
     final base = ThemeData(
       useMaterial3: true,
@@ -84,7 +142,12 @@ abstract final class AppTheme {
       fontFamilyFallback: _fallback,
     );
 
-    final hairline = isDark ? const Color(0xFF2A322E) : const Color(0xFFE7E5E0);
+    final cardColor = isDark ? AppColors.surfaceDark : Colors.white;
+    // Dark cards separate from the background by luminance alone; light cards
+    // still need the hairline or they vanish into the page.
+    final cardBorder = isDark
+        ? BorderSide.none
+        : const BorderSide(color: AppColors.hairlineLight);
 
     return base.copyWith(
       scaffoldBackgroundColor: scheme.surface,
@@ -100,66 +163,192 @@ abstract final class AppTheme {
       ),
       cardTheme: CardThemeData(
         elevation: 0,
-        color: isDark ? const Color(0xFF181E1B) : Colors.white,
+        color: cardColor,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: hairline),
+          borderRadius: BorderRadius.circular(_cardRadius),
+          side: cardBorder,
         ),
         margin: EdgeInsets.zero,
       ),
       chipTheme: base.chipTheme.copyWith(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-        side: BorderSide(color: hairline),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_pill),
+        ),
+        side: BorderSide(color: scheme.outline),
+        backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+        selectedColor: AppColors.yellow,
         showCheckmark: false,
-        labelStyle: base.textTheme.labelMedium,
+        labelStyle: base.textTheme.labelMedium?.copyWith(
+          color: scheme.onSurface,
+        ),
+        secondaryLabelStyle: base.textTheme.labelMedium?.copyWith(
+          color: Colors.black,
+        ),
       ),
-      dividerTheme: DividerThemeData(color: hairline, thickness: 1, space: 1),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          // Selected is a yellow fill with black on it; unselected is the card
+          // surface. Written as resolvers because a segmented button carries
+          // both states at once.
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return AppColors.yellow;
+            return isDark ? AppColors.surfaceDark : Colors.white;
+          }),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return Colors.black;
+            return scheme.onSurface;
+          }),
+          side: WidgetStatePropertyAll(BorderSide(color: scheme.outline)),
+          // 48dp: these are primary navigation between four views of the feed.
+          minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 16),
+          ),
+          textStyle: WidgetStatePropertyAll(base.textTheme.labelLarge),
+        ),
+      ),
+      dividerTheme: DividerThemeData(
+        color: scheme.outline,
+        thickness: 1,
+        space: 1,
+      ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: isDark ? const Color(0xFF161B18) : Colors.white,
+        backgroundColor: isDark ? AppColors.black : Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         height: 64,
-        indicatorColor: scheme.primary.withValues(alpha: 0.14),
+        // Barely-there indicator: the yellow icon is the signal, and a filled
+        // pill behind it makes the bar shout as loudly as an urgent alert.
+        indicatorColor: isDark
+            ? AppColors.surfaceDark
+            : AppColors.yellow.withValues(alpha: 0.18),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: selected
+                ? (isDark ? AppColors.yellow : Colors.black)
+                : (isDark ? AppColors.mutedDark : const Color(0xFF5F5F5A)),
+          );
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return base.textTheme.labelSmall?.copyWith(
+            color: selected
+                ? (isDark ? AppColors.yellow : Colors.black)
+                : (isDark ? AppColors.mutedDark : const Color(0xFF5F5F5A)),
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          );
+        }),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
+          backgroundColor: AppColors.yellow,
+          foregroundColor: Colors.black,
           minimumSize: const Size.fromHeight(48),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(_pill),
+          ),
           // From the text theme, not a bare TextStyle: `styleFrom` does not
           // inherit the family, so a literal here silently fell back to the
           // platform font on buttons only.
           textStyle: base.textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
+          // The secondary action: a filled charcoal pill in dark, an outlined
+          // one in light. Never yellow — two yellow buttons on a screen is no
+          // primary action at all.
+          backgroundColor: isDark ? AppColors.surfaceDarkRaised : null,
+          foregroundColor: isDark ? AppColors.yellow : Colors.black,
+          side: BorderSide(
+            color: isDark ? Colors.transparent : AppColors.hairlineLight,
+          ),
           minimumSize: const Size.fromHeight(48),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(_pill),
+          ),
+          textStyle: base.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: isDark ? AppColors.yellow : Colors.black,
+          // 48dp both ways: Material's default text button is 40 tall, which
+          // is under the minimum touch target and is most of the in-card
+          // actions in this app.
+          minimumSize: const Size(48, 48),
+          textStyle: base.textTheme.labelLarge,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: isDark ? const Color(0xFF181E1B) : Colors.white,
+        fillColor: isDark ? AppColors.surfaceDarkRaised : Colors.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: hairline),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: isDark
+              ? BorderSide.none
+              : const BorderSide(color: AppColors.hairlineLight),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: hairline),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: isDark
+              ? BorderSide.none
+              : const BorderSide(color: AppColors.hairlineLight),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: scheme.primary, width: 1.6),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.yellow, width: 1.6),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_cardRadius),
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(_cardRadius),
+          ),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        // Fixed width, or a snackbar spans a nineteen-hundred-pixel browser
+        // window to say one word.
+        width: 400,
+        backgroundColor: isDark
+            ? AppColors.surfaceDarkRaised
+            : const Color(0xFF2C2C2E),
+        contentTextStyle: base.textTheme.bodyMedium?.copyWith(
+          color: Colors.white,
+        ),
+        actionTextColor: AppColors.yellow,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppColors.yellow,
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return Colors.black;
+          return null;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return AppColors.yellow;
+          return null;
+        }),
       ),
     );
   }

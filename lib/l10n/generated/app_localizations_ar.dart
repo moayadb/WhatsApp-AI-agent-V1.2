@@ -531,4 +531,16 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get themeToLight => 'التبديل إلى الفاتح';
+
+  @override
+  String get filterIgnored => 'متجاهَل';
+
+  @override
+  String get alertsLoadFailed => 'تعذّر تحميل التنبيهات';
+
+  @override
+  String get alertLoadFailed => 'تعذّر تحميل هذا التنبيه';
+
+  @override
+  String get themeModeTitle => 'المظهر';
 }

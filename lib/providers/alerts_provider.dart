@@ -32,7 +32,8 @@ class AlertsProvider extends ChangeNotifier {
   AlertType? get typeFilter => _typeFilter;
   String? get agentFilter => _agentFilter;
 
-  int get openCount => _alerts.where((a) => a.status == AlertStatus.isNew).length;
+  int get openCount =>
+      _alerts.where((a) => a.status == AlertStatus.isNew).length;
 
   Future<void> load() async {
     _loading = true;
@@ -47,6 +48,16 @@ class AlertsProvider extends ChangeNotifier {
       );
     } on ApiException catch (error) {
       _errorCode = error.code;
+      // Drop what is on screen. Rows fetched under a different filter, or
+      // before the server started failing, are worse than an honest error —
+      // they look like the current answer to the current question.
+      _alerts = const [];
+    } catch (_) {
+      // A decode that throws is not an ApiException, and used to escape into
+      // the zone: the spinner stayed up forever and the manager was left
+      // looking at a screen that was never going to finish.
+      _errorCode = 'client_error';
+      _alerts = const [];
     } finally {
       _loading = false;
       notifyListeners();
@@ -90,11 +101,27 @@ class AlertsProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } on ApiException catch (error) {
-      _alerts = [..._alerts]..[index] = previous;
-      _errorCode = error.code;
-      notifyListeners();
+      _rollback(index, previous, error.code);
+      return false;
+    } catch (_) {
+      // Same rollback for a non-API failure: an optimistic edit that is left
+      // standing after the write failed is the app lying about the server.
+      _rollback(index, previous, 'client_error');
       return false;
     }
+  }
+
+  void _rollback(int index, Alert previous, String code) {
+    final current = _alerts.indexWhere((a) => a.id == previous.id);
+    if (current != -1) {
+      _alerts = [..._alerts]..[current] = previous;
+    } else if (index >= 0 && index <= _alerts.length) {
+      // The row left the list between the edit and the failure; put it back
+      // where it was.
+      _alerts = [..._alerts]..insert(index, previous);
+    }
+    _errorCode = code;
+    notifyListeners();
   }
 
   /// Undo a triage decision, including one that removed the row.
@@ -119,6 +146,10 @@ class AlertsProvider extends ChangeNotifier {
       _errorCode = error.code;
       notifyListeners();
       return false;
+    } catch (_) {
+      _errorCode = 'client_error';
+      notifyListeners();
+      return false;
     }
   }
 
@@ -127,6 +158,10 @@ class AlertsProvider extends ChangeNotifier {
       return await _api.alert(id);
     } on ApiException catch (error) {
       _errorCode = error.code;
+      notifyListeners();
+      return null;
+    } catch (_) {
+      _errorCode = 'client_error';
       notifyListeners();
       return null;
     }
@@ -145,9 +180,16 @@ class AlertsProvider extends ChangeNotifier {
       case RealtimeEventKind.alertUpdated:
         final alert = Alert.fromJson(event.payload);
         final index = _alerts.indexWhere((a) => a.id == alert.id);
-        if (index == -1) return;
+
         if (!_matchesFilters(alert)) {
+          if (index == -1) return;
           _alerts = _alerts.where((a) => a.id != alert.id).toList();
+        } else if (index == -1) {
+          // Not on screen but it belongs here now — an alert reopened from the
+          // manager's other device, or one that just moved into this filter.
+          // Dropping it meant two devices disagreeing about the same feed.
+          _alerts = [..._alerts, alert]
+            ..sort((a, b) => b.eventAt.compareTo(a.eventAt));
         } else {
           _alerts = [..._alerts]..[index] = alert;
         }

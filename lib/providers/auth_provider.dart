@@ -32,11 +32,11 @@ class AuthProvider extends ChangeNotifier {
     required RealtimeService realtime,
     required PushService push,
     required SharedPreferences prefs,
-  })  : _client = client,
-        _api = api,
-        _realtime = realtime,
-        _push = push,
-        _prefs = prefs {
+  }) : _client = client,
+       _api = api,
+       _realtime = realtime,
+       _push = push,
+       _prefs = prefs {
     // A token the server no longer accepts must not leave the user staring at
     // a screen that fails to load.
     _client.onUnauthorized = () {
@@ -65,7 +65,8 @@ class AuthProvider extends ChangeNotifier {
   OrgSettings? get settings => _settings;
   String? get errorCode => _errorCode;
   bool get busy => _busy;
-  bool get isSignedIn => _stage == SessionStage.intake || _stage == SessionStage.ready;
+  bool get isSignedIn =>
+      _stage == SessionStage.intake || _stage == SessionStage.ready;
 
   /// Restore a stored session on launch.
   Future<void> restore() async {
@@ -109,17 +110,16 @@ class AuthProvider extends ChangeNotifier {
     required String password,
     required String locale,
     String? companyName,
-  }) =>
-      _authenticate(
-        () => _api.signUp(
-          fullName: fullName,
-          email: email,
-          phone: phone,
-          password: password,
-          locale: locale,
-          companyName: companyName,
-        ),
-      );
+  }) => _authenticate(
+    () => _api.signUp(
+      fullName: fullName,
+      email: email,
+      phone: phone,
+      password: password,
+      locale: locale,
+      companyName: companyName,
+    ),
+  );
 
   Future<bool> signIn(String email, String password) =>
       _authenticate(() => _api.signIn(email, password));

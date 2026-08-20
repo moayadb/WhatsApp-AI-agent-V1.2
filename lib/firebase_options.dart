@@ -70,7 +70,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '73419662405',
     projectId: 'whatsapp-ai-agent-waseem',
     storageBucket: 'whatsapp-ai-agent-waseem.firebasestorage.app',
-    iosClientId: '73419662405-ddn58887ad2uuduph58seamteorta7vc.apps.googleusercontent.com',
+    iosClientId:
+        '73419662405-ddn58887ad2uuduph58seamteorta7vc.apps.googleusercontent.com',
     iosBundleId: 'com.sanayed.tulipAlerts',
   );
 }

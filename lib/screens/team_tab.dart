@@ -9,6 +9,7 @@ import '../models/team.dart';
 import '../providers/team_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/auto_direction_text.dart';
+import '../widgets/content_width.dart';
 import '../widgets/states.dart';
 import 'link_number_sheet.dart';
 
@@ -116,88 +117,90 @@ class _TeamTabState extends State<TeamTab> {
     final ownNumbers = team.channels.where((c) => c.isOwnNumber).toList();
 
     return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: team.load,
-        child: team.loading && team.agents.isEmpty
-            ? const SkeletonList()
-            : ListView(
-                controller: _scroll,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                children: [
-                  if (team.needsAttention.isNotEmpty)
-                    _AttentionBanner(
-                      count: team.needsAttention.length,
-                      onReveal: () => _reveal(team.needsAttention.first),
-                      onReconnect: () {
-                        final broken = team.needsAttention.first;
-                        LinkNumberSheet.show(
-                          context,
-                          agentId: broken.agentId,
-                          agentName: broken.agentName,
-                          phone: broken.phone,
-                        );
-                      },
-                    ),
+      body: ContentWidth(
+        child: RefreshIndicator(
+          onRefresh: team.load,
+          child: team.loading && team.agents.isEmpty
+              ? const SkeletonList()
+              : ListView(
+                  controller: _scroll,
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                  children: [
+                    if (team.needsAttention.isNotEmpty)
+                      _AttentionBanner(
+                        count: team.needsAttention.length,
+                        onReveal: () => _reveal(team.needsAttention.first),
+                        onReconnect: () {
+                          final broken = team.needsAttention.first;
+                          LinkNumberSheet.show(
+                            context,
+                            agentId: broken.agentId,
+                            agentName: broken.agentName,
+                            phone: broken.phone,
+                          );
+                        },
+                      ),
 
-                  // The manager's own number first — it is usually the first
-                  // one he links, before he has added anybody.
-                  Text(
-                    l10n.myOwnNumber,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (ownNumbers.isEmpty)
-                    _AddNumberTile(
-                      label: l10n.linkNumber,
-                      onTap: () => LinkNumberSheet.show(context),
-                    )
-                  else
-                    ...ownNumbers.map(
-                      (c) => _ChannelTile(
-                        key: _keyFor(c.id),
-                        channel: c,
-                        highlighted: _highlighted == c.id,
+                    // The manager's own number first — it is usually the first
+                    // one he links, before he has added anybody.
+                    Text(
+                      l10n.myOwnNumber,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          l10n.teamTitle,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
+                    const SizedBox(height: 8),
+                    if (ownNumbers.isEmpty)
+                      _AddNumberTile(
+                        label: l10n.linkNumber,
+                        onTap: () => LinkNumberSheet.show(context),
+                      )
+                    else
+                      ...ownNumbers.map(
+                        (c) => _ChannelTile(
+                          key: _keyFor(c.id),
+                          channel: c,
+                          highlighted: _highlighted == c.id,
                         ),
                       ),
-                      TextButton.icon(
-                        onPressed: _addAgents,
-                        icon: const Icon(Icons.person_add_alt, size: 18),
-                        label: Text(l10n.addAgents),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
 
-                  if (team.agents.isEmpty)
-                    EmptyState(
-                      icon: Icons.groups_outlined,
-                      title: l10n.noAgentsTitle,
-                      body: l10n.noAgentsBody,
-                    )
-                  else
-                    ...team.agents.map(
-                      (agent) => _AgentCard(
-                        agent: agent,
-                        keyFor: _keyFor,
-                        highlighted: _highlighted,
-                      ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            l10n.teamTitle,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: _addAgents,
+                          icon: const Icon(Icons.person_add_alt, size: 18),
+                          label: Text(l10n.addAgents),
+                        ),
+                      ],
                     ),
-                ],
-              ),
+                    const SizedBox(height: 4),
+
+                    if (team.agents.isEmpty)
+                      EmptyState(
+                        icon: Icons.groups_outlined,
+                        title: l10n.noAgentsTitle,
+                        body: l10n.noAgentsBody,
+                      )
+                    else
+                      ...team.agents.map(
+                        (agent) => _AgentCard(
+                          agent: agent,
+                          keyFor: _keyFor,
+                          highlighted: _highlighted,
+                        ),
+                      ),
+                  ],
+                ),
+        ),
       ),
     );
   }
@@ -238,7 +241,7 @@ class _AttentionBanner extends StatelessWidget {
         onTap: onReveal,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -299,9 +302,9 @@ class _AgentCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -319,20 +322,30 @@ class _AgentCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     agent.name,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
                 if (!agent.hasNumber)
-                  TextButton.icon(
-                    onPressed: () => LinkNumberSheet.show(
-                      context,
-                      agentId: agent.id,
-                      agentName: agent.name,
+                  // Flexible, and the label ellipsizes: "Connect a number"
+                  // beside a name is five pixels too wide on a 375px phone, and
+                  // this is the row that tells the manager somebody is not
+                  // being watched — it must not be the row that breaks.
+                  Flexible(
+                    child: TextButton.icon(
+                      onPressed: () => LinkNumberSheet.show(
+                        context,
+                        agentId: agent.id,
+                        agentName: agent.name,
+                      ),
+                      icon: const Icon(Icons.add_link, size: 18),
+                      label: Text(
+                        l10n.linkNumber,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    icon: const Icon(Icons.add_link, size: 18),
-                    label: Text(l10n.linkNumber),
                   )
                 else
                   IconButton(
@@ -397,7 +410,9 @@ class _ChannelTile extends StatelessWidget {
   }
 
   Color _statusColor(ColorScheme scheme) {
-    if (channel.status.isLive) return AppColors.emerald;
+    // Green, not the brand yellow: yellow means "needs you" everywhere else in
+    // this app, and a watching number needs nothing.
+    if (channel.status.isLive) return AppColors.connected;
     if (channel.status.needsAttention) return scheme.error;
     return scheme.onSurfaceVariant;
   }
@@ -418,7 +433,7 @@ class _ChannelTile extends StatelessWidget {
           width: 8,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -471,7 +486,7 @@ class _ChannelTile extends StatelessWidget {
 
     final content = AnimatedContainer(
       duration: const Duration(milliseconds: 250),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: highlighted
             ? theme.colorScheme.errorContainer.withValues(alpha: 0.55)
@@ -484,9 +499,9 @@ class _ChannelTile extends StatelessWidget {
     if (dense) return content;
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
+        padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
         child: content,
       ),
     );
@@ -503,7 +518,7 @@ class _AddNumberTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),

@@ -28,6 +28,122 @@ Heads-up:  anything the other stream or the runbook should know.
 
 ---
 
+### 2026-08-21 — four bug fixes, the black-and-yellow rebrand, and a Material pass
+
+**1. The bigint.** `types.setTypeParser(20, …)` in `server/api/src/db.ts`, once at
+module load, so every int8 in the schema — present and future — serializes as a
+JSON number. The client no longer casts either: `int.tryParse('${…}')` returns
+null for garbage instead of throwing. Both halves matter. The server fix stops
+it happening; the client fix stops one bad field taking down a whole list again,
+which is what actually made this a critical rather than a cosmetic bug. Same
+treatment for `evidence[...]` in `labels.dart`, which was casting jsonb values
+inside a build method.
+
+**2. Errors.** `load()`, `detail()`, `setStatus()` and `undoStatus()` now each
+have a generic `catch` recording `client_error`; `setStatus` rolls back through
+one `_rollback()` helper that also handles the case where the row left the list
+between the edit and the failure. `load()` clears the list on failure — stale
+rows from a previous filter looked like the current answer. The detail screen
+ends its spinner in `finally` and has a real error state with a retry, and the
+feed shows an error state instead of "لا شيء يحتاجك" when a load fails. That
+last one was the dangerous confusion: an outage rendering as "everything is
+answered".
+
+**3. Filters.** Four-segment `SegmentedButton` — needs-you / processed /
+ignored / all — replacing the three chips. Ignored had no home at all, which is
+why the manager could not find the alert he had just ignored. Horizontally
+scrollable, because four Arabic labels do not fit a 375px phone and the
+alternative is Material clipping them.
+
+**4. Theme mode.** App-bar toggle gone; three-way `SegmentedButton` in Settings
+with icons and labels; unset default is now dark. The toggle was a second
+source of truth for one preference and could not express "follow the device" at
+all, so using it silently discarded that choice.
+
+**5. Confirm dialog.** Two `Expanded` buttons in one `Row`, both 48dp — an
+outlined cancel and a filled confirm. The theme gives buttons a full-width
+minimum, which is right on a form and wrong in a dialog: it was what pushed
+إلغاء onto its own line above a full-width تجاهل.
+
+**6. Width.** `ContentWidth` (Center + 720 max) on all four tab bodies, the
+detail body and its action bar, and the intake and refine screens. Auth and the
+link sheet already constrained themselves at 420/460. Snackbars are floating at
+`width: 400` from the theme. Detail action buttons cap at 360 each.
+
+**7. Rebrand.** Black and yellow throughout `app_theme.dart`; emerald is gone.
+`#0A0A0A` ground, `#1C1C1E` cards at radius 24 with no border, `#FFD617`
+primary with black on it, pill buttons, `#9A9A9E` secondary text, black nav bar
+with yellow selection. Light is the same design inverted, keeping the hairline.
+Severity and alert-type colours are untouched except amber, darkened to
+`#B45309` so it stops reading as a dim brand yellow. The donut ramp leads with
+the accent now. One emerald reference outside the theme
+(`team_tab.dart:_statusColor`) now routes through `AppColors.connected` — green
+stays for "watching", because yellow means "needs you" everywhere else.
+
+**8. Material pass — per screen.** Global first: text button minimum raised to
+48×48 (Material's default 40 is under the touch target and is most of this
+app's in-card actions), and 27 off-grid spacing values plus 10 off-grid paddings
+snapped to the 4dp grid across the screens and shared widgets.
+
+| Screen | Changed | Verified |
+|---|---|---|
+| `alerts_tab` | segmented filter, error state, ContentWidth, badge row → Wrap, action row → Wrap, grid | overflow-free ×8 combinations; filter test drives all four segments |
+| `alert_detail_screen` | spinner in `finally`, ErrorState + retry, ContentWidth on body and action bar, 360 button cap, grid | reached through the feed in the layout matrix |
+| `team_tab` | ContentWidth, agent-card button now Flexible + ellipsis, name ellipsis, `AppColors.connected`, grid | was overflowing 5px in English at 375; now clean ×8 |
+| `board_tab` | ContentWidth, grid | clean ×8 |
+| `settings_tab` | three-way theme control, ContentWidth, grid | clean ×8 |
+| `auth_screen` | nothing — already 420-capped and single-heading | clean ×8 |
+| `intake_screen` | ContentWidth, grid | clean ×8 |
+| `refine_screen` | ContentWidth | clean ×8 |
+| `link_number_sheet` | grid only; already 460-capped, pairing code already LTR-isolated | two `titleLarge`s exist but in mutually exclusive states, so one per screen holds |
+
+Audited and already clean: no ad-hoc `fontSize` or bare `TextStyle` anywhere in
+`lib/` outside the theme, and no non-mirroring `EdgeInsets.only(left:/right:)`,
+`Alignment.centerLeft/Right` or `TextAlign.left/right` — the codebase was
+already fully directional.
+
+**9. Realtime.** `alertUpdated` now inserts in `event_at` order when the row is
+not on screen but matches the filter, so an alert reopened on another device
+reappears instead of the two devices disagreeing.
+
+**Verified**
+
+- **The bigint, against the live dev database.** Raw query: `typeof` is
+  `number`. Over HTTP with a hand-signed token: `"handling_ms":8436258` —
+  unquoted. That is the exact failure the manager hit, gone at the source.
+- `flutter test`: **77 passing**, 20 of them new. The layout matrix pumps seven
+  screens × ar/en × dark/light × 375/1280 = 56 combinations and fails on any
+  RenderFlex overflow. It found two real bugs I had not been told about: the
+  alert card's badge row overflowed 54px with a VIP Arabic alert, and the team
+  card's connect button overflowed 5px in English. Both fixed, both now covered.
+- `flutter analyze`: 5 issues, all the pre-existing `prefer_initializing_formals`
+  in `auth_provider.dart` whose suggested fix does not compile (Dart forbids
+  private named parameters). Unchanged from the last three rounds.
+- `npm run build` in `server/api`, and `flutter build web --release`, both clean.
+
+**Not verified**
+
+- **Nobody has looked at the rebrand.** Contrast ratios, whether the yellow is
+  right at 6am on a phone in a car, whether `#B45309` still reads as "medium"
+  next to the accent — the tests prove nothing overflows and nothing throws,
+  not that it looks good. This is the round that most needs your eyes.
+- The dark default only applies to installs with no stored preference; anyone
+  who has already touched the setting keeps what they chose.
+
+**Heads-up**
+
+- The API on :3000 and the bundle on :8081 are both rebuilt but still running
+  the old code until restarted. The bigint fix in particular does nothing until
+  the API process restarts.
+- `unassignedAgent` was removed two rounds ago; this round removes nothing from
+  `l10n`, and adds `filterIgnored`, `alertsLoadFailed`, `alertLoadFailed`,
+  `themeModeTitle`.
+- Anyone adding a screen should add it to `test/screens_layout_test.dart` — the
+  matrix is cheap to extend and it has now caught more layout bugs than review
+  did.
+
+---
+
 ### 2026-08-20 — push wiring and the first Android build
 
 **Task 1 — app-side push.** `Firebase.initializeApp` now runs in `main()`,

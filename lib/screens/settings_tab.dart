@@ -8,6 +8,7 @@ import '../providers/auth_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/analyzer_api.dart';
 import '../widgets/topic_chips.dart';
+import '../widgets/content_width.dart';
 import 'refine_screen.dart';
 
 /// Where the manager tunes what onboarding decided for him.
@@ -27,153 +28,183 @@ class SettingsTab extends StatelessWidget {
     final settings = auth.settings;
 
     return Scaffold(
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-        children: [
-          _Section(title: l10n.accountTitle),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: Text(auth.user?.fullName ?? '—'),
-              subtitle: Text(auth.user?.email ?? ''),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // What the AI watches for, as topics. The prompt behind them is not
-          // shown and not editable here — it is changed by asking.
-          _Section(title: l10n.promptTitle),
-          const _WatchingCard(),
-          const SizedBox(height: 20),
-
-          if (settings != null) ...[
-            _Section(title: l10n.thresholdsTitle),
-            Card(
-              child: Column(
-                children: [
-                  _MinutesTile(
-                    label: l10n.firstResponseLabel,
-                    minutes: settings.firstResponseMinutes,
-                    field: 'first_response_minutes',
-                  ),
-                  const Divider(height: 1),
-                  _MinutesTile(
-                    label: l10n.vipResponseLabel,
-                    minutes: settings.vipFirstResponseMinutes,
-                    field: 'vip_first_response_minutes',
-                  ),
-                  const Divider(height: 1),
-                  _MinutesTile(
-                    label: l10n.coldLeadLabel,
-                    minutes: settings.coldLeadHours,
-                    field: 'cold_lead_hours',
-                    inHours: true,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            _Section(title: l10n.detectorsTitle),
-            Card(
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    title: Text(l10n.detectPromises),
-                    value: settings.detectUnauthorizedPromise,
-                    onChanged: (value) => _save(context, {
-                      'detect_unauthorized_promise': value,
-                    }),
-                  ),
-                  const Divider(height: 1),
-                  SwitchListTile(
-                    title: Text(l10n.detectOffChannel),
-                    value: settings.detectOffChannel,
-                    onChanged: (value) => _save(context, {
-                      'detect_off_channel': value,
-                    }),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            _Section(title: l10n.notificationsTitle),
+      body: ContentWidth(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+          children: [
+            _Section(title: l10n.accountTitle),
             Card(
               child: ListTile(
-                title: Text(l10n.minPushSeverity),
-                subtitle: Text(l10n.quietHoursHelp),
-                trailing: DropdownButton<String>(
-                  value: settings.minPushSeverity,
-                  underline: const SizedBox.shrink(),
-                  items: [
-                    for (final severity in Severity.values)
-                      DropdownMenuItem(
-                        value: severity.name,
-                        child: Text(l10n.severity(severity)),
-                      ),
+                leading: const Icon(Icons.person_outline),
+                title: Text(auth.user?.fullName ?? '—'),
+                subtitle: Text(auth.user?.email ?? ''),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // What the AI watches for, as topics. The prompt behind them is not
+            // shown and not editable here — it is changed by asking.
+            _Section(title: l10n.promptTitle),
+            const _WatchingCard(),
+            const SizedBox(height: 20),
+
+            if (settings != null) ...[
+              _Section(title: l10n.thresholdsTitle),
+              Card(
+                child: Column(
+                  children: [
+                    _MinutesTile(
+                      label: l10n.firstResponseLabel,
+                      minutes: settings.firstResponseMinutes,
+                      field: 'first_response_minutes',
+                    ),
+                    const Divider(height: 1),
+                    _MinutesTile(
+                      label: l10n.vipResponseLabel,
+                      minutes: settings.vipFirstResponseMinutes,
+                      field: 'vip_first_response_minutes',
+                    ),
+                    const Divider(height: 1),
+                    _MinutesTile(
+                      label: l10n.coldLeadLabel,
+                      minutes: settings.coldLeadHours,
+                      field: 'cold_lead_hours',
+                      inHours: true,
+                    ),
                   ],
-                  onChanged: (value) => value == null
-                      ? null
-                      : _save(context, {'min_push_severity': value}),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              _Section(title: l10n.detectorsTitle),
+              Card(
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      title: Text(l10n.detectPromises),
+                      value: settings.detectUnauthorizedPromise,
+                      onChanged: (value) => _save(context, {
+                        'detect_unauthorized_promise': value,
+                      }),
+                    ),
+                    const Divider(height: 1),
+                    SwitchListTile(
+                      title: Text(l10n.detectOffChannel),
+                      value: settings.detectOffChannel,
+                      onChanged: (value) =>
+                          _save(context, {'detect_off_channel': value}),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              _Section(title: l10n.notificationsTitle),
+              Card(
+                child: ListTile(
+                  title: Text(l10n.minPushSeverity),
+                  subtitle: Text(l10n.quietHoursHelp),
+                  trailing: DropdownButton<String>(
+                    value: settings.minPushSeverity,
+                    underline: const SizedBox.shrink(),
+                    items: [
+                      for (final severity in Severity.values)
+                        DropdownMenuItem(
+                          value: severity.name,
+                          child: Text(l10n.severity(severity)),
+                        ),
+                    ],
+                    onChanged: (value) => value == null
+                        ? null
+                        : _save(context, {'min_push_severity': value}),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+
+            // All three choices in one control, in the one place settings live.
+            // The app-bar toggle was a second, competing source of truth for the
+            // same preference, and it could not express "follow the device" at
+            // all — so switching there silently dropped that choice.
+            _Section(title: l10n.appearanceTitle),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.themeModeTitle, style: theme.textTheme.bodyLarge),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      // Three labelled segments in Arabic do not fit a 375px
+                      // phone; scrolling beats letting Material clip the text.
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SegmentedButton<ThemeMode>(
+                          segments: [
+                            ButtonSegment(
+                              value: ThemeMode.system,
+                              icon: const Icon(Icons.brightness_auto),
+                              label: Text(l10n.themeSystem),
+                            ),
+                            ButtonSegment(
+                              value: ThemeMode.light,
+                              icon: const Icon(Icons.light_mode),
+                              label: Text(l10n.themeLight),
+                            ),
+                            ButtonSegment(
+                              value: ThemeMode.dark,
+                              icon: const Icon(Icons.dark_mode),
+                              label: Text(l10n.themeDark),
+                            ),
+                          ],
+                          selected: {prefs.themeMode},
+                          onSelectionChanged: (selection) =>
+                              prefs.setThemeMode(selection.first),
+                          showSelectedIcon: false,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
             const SizedBox(height: 20),
+
+            _Section(title: l10n.languageTitle),
+            Card(
+              child: RadioGroup<String>(
+                groupValue: prefs.locale.languageCode,
+                onChanged: (code) =>
+                    code == null ? null : _saveLanguage(context, code),
+                child: Column(
+                  children: [
+                    RadioListTile<String>(
+                      value: 'ar',
+                      title: Text(l10n.arabicLabel),
+                    ),
+                    RadioListTile<String>(
+                      value: 'en',
+                      title: Text(l10n.englishLabel),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            OutlinedButton.icon(
+              onPressed: () => context.read<AuthProvider>().signOut(),
+              icon: const Icon(Icons.logout),
+              label: Text(l10n.signOut),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: theme.colorScheme.error,
+              ),
+            ),
           ],
-
-          // Light and dark are one tap in the app bar, where the manager is
-          // when he notices the room got dark. All that is left here is the
-          // decision he makes once: whether to follow the phone at all.
-          _Section(title: l10n.appearanceTitle),
-          Card(
-            child: SwitchListTile(
-              title: Text(l10n.themeSystem),
-              value: prefs.themeMode == ThemeMode.system,
-              onChanged: (follow) => prefs.setThemeMode(
-                follow
-                    ? ThemeMode.system
-                    // Turning it off keeps what is on screen right now, rather
-                    // than snapping to a brightness he did not ask for.
-                    : (theme.brightness == Brightness.dark
-                          ? ThemeMode.dark
-                          : ThemeMode.light),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          _Section(title: l10n.languageTitle),
-          Card(
-            child: RadioGroup<String>(
-              groupValue: prefs.locale.languageCode,
-              onChanged: (code) =>
-                  code == null ? null : _saveLanguage(context, code),
-              child: Column(
-                children: [
-                  RadioListTile<String>(
-                    value: 'ar',
-                    title: Text(l10n.arabicLabel),
-                  ),
-                  RadioListTile<String>(
-                    value: 'en',
-                    title: Text(l10n.englishLabel),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          OutlinedButton.icon(
-            onPressed: () => context.read<AuthProvider>().signOut(),
-            icon: const Icon(Icons.logout),
-            label: Text(l10n.signOut),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: theme.colorScheme.error,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -201,7 +232,9 @@ class SettingsTab extends StatelessWidget {
       // Resolved against the language just chosen, not the one being left.
       messenger.showSnackBar(
         SnackBar(
-          content: Text(lookupAppLocalizations(Locale(code)).languageSyncFailed),
+          content: Text(
+            lookupAppLocalizations(Locale(code)).languageSyncFailed,
+          ),
         ),
       );
     }

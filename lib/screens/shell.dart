@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../providers/alerts_provider.dart';
 import '../providers/auth_provider.dart';
-import '../providers/settings_provider.dart';
 import '../state/shell_controller.dart';
 import 'alerts_tab.dart';
 import 'board_tab.dart';
@@ -51,7 +50,6 @@ class Shell extends StatelessWidget {
               ),
           ],
         ),
-        actions: const [_ThemeToggle(), SizedBox(width: 4)],
       ),
       body: IndexedStack(
         index: index,
@@ -90,42 +88,6 @@ class Shell extends StatelessWidget {
             label: l10n.tabSettings,
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Light and dark, one tap away.
-///
-/// It lived in Settings behind three radio buttons, which is three taps and a
-/// screen change for something the manager does when the light in the room
-/// changes. Switching here also turns off "follow the device", because an
-/// explicit choice should stick.
-class _ThemeToggle extends StatelessWidget {
-  const _ThemeToggle();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return IconButton(
-      tooltip: isDark ? l10n.themeToLight : l10n.themeToDark,
-      onPressed: () => context.read<SettingsProvider>().setThemeMode(
-        isDark ? ThemeMode.light : ThemeMode.dark,
-      ),
-      icon: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        transitionBuilder: (child, animation) => RotationTransition(
-          turns: Tween<double>(begin: 0.7, end: 1).animate(animation),
-          child: FadeTransition(opacity: animation, child: child),
-        ),
-        child: Icon(
-          isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-          // Without a key the switcher sees the same widget type and skips
-          // the animation entirely.
-          key: ValueKey<bool>(isDark),
-        ),
       ),
     );
   }

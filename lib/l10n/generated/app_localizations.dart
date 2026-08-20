@@ -1075,6 +1075,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Switch to light'**
   String get themeToLight;
+
+  /// No description provided for @filterIgnored.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignored'**
+  String get filterIgnored;
+
+  /// No description provided for @alertsLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load your alerts'**
+  String get alertsLoadFailed;
+
+  /// No description provided for @alertLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load this alert'**
+  String get alertLoadFailed;
+
+  /// No description provided for @themeModeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme'**
+  String get themeModeTitle;
 }
 
 class _AppLocalizationsDelegate

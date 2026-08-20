@@ -13,9 +13,7 @@ class ApiException implements Exception {
   ApiException(this.status, this.code, [this.detail]);
 
   /// No response at all — server down, DNS, offline.
-  ApiException.network([this.detail])
-    : status = 0,
-      code = 'network';
+  ApiException.network([this.detail]) : status = 0, code = 'network';
 
   final int status;
   final String code;

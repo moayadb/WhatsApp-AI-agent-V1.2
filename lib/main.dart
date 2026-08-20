@@ -112,9 +112,7 @@ class _AnalyzerAppState extends State<AnalyzerApp> {
         ),
         // One realtime subscription, shared. Alerts is the only consumer today;
         // channel-status events will hang off the same socket.
-        ChangeNotifierProvider(
-          create: (_) => AlertsProvider(_api, _realtime),
-        ),
+        ChangeNotifierProvider(create: (_) => AlertsProvider(_api, _realtime)),
         ChangeNotifierProvider(create: (_) => TeamProvider(_api)),
         ChangeNotifierProvider(create: (_) => DashboardProvider(_api)),
         ChangeNotifierProvider(create: (_) => OnboardingProvider(_api)),

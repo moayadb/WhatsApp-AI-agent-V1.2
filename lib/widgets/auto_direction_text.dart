@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 /// character. Message and AI text can be Arabic, English, or mixed — forcing
 /// the ambient RTL onto an English string pushes trailing punctuation to the
 /// start of the line (`.employees or service available`).
-TextDirection detectDirection(String text, {TextDirection fallback = TextDirection.rtl}) {
+TextDirection detectDirection(
+  String text, {
+  TextDirection fallback = TextDirection.rtl,
+}) {
   for (final rune in text.runes) {
     // Strong RTL: Arabic + supplements + presentation forms, Hebrew.
     if ((rune >= 0x0590 && rune <= 0x08FF) ||
@@ -59,7 +62,10 @@ class AutoDirectionText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final direction = detectDirection(text, fallback: Directionality.of(context));
+    final direction = detectDirection(
+      text,
+      fallback: Directionality.of(context),
+    );
     return SizedBox(
       width: double.infinity,
       child: Text(

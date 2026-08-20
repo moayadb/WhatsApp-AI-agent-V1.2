@@ -44,9 +44,9 @@ class _AuthScreenState extends State<AuthScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_registering && !_acceptedTerms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.errTermsRequired)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.errTermsRequired)));
       return;
     }
 
@@ -63,9 +63,9 @@ class _AuthScreenState extends State<AuthScreen> {
         : await auth.signIn(_email.text.trim(), _password.text);
 
     if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.apiError(auth.errorCode))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.apiError(auth.errorCode))));
     }
   }
 
