@@ -176,3 +176,14 @@ A rejected secret returns an **empty 200**, not a 401.
 | Alert has no agent name | the number is linked to the manager, not an agent |
 | Interview replies in the wrong language | it mirrors the manager's own language; the app locale is only a fallback |
 | Everything down after reboot | nothing auto-starts; run `run-local.ps1` |
+
+---
+
+## Push notifications
+
+In-app alerts (WebSocket) work with no setup. Push to the phone additionally
+needs one credential: see `server/secrets/README.md`. Until the file exists,
+push is silently disabled and everything else works.
+
+The sender lives in `server/api/src/push.ts` and already gates on the org's
+`min_push_severity` and quiet hours; urgent alerts bypass quiet hours.

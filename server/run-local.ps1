@@ -90,7 +90,7 @@ $apiVars['JWT_SECRET'] = $secrets['JWT_SECRET']
 $apiVars['WA_SERVICE_URL'] = 'http://127.0.0.1:3100'
 $apiVars['MIGRATIONS_DIR'] = Join-Path $root 'db\migrations'
 $apiVars['WORKER_INTERVAL_SECONDS'] = '30'
-foreach ($k in @('LLM_API_KEY', 'LLM_BASE_URL', 'LLM_MODEL', 'N8N_WEBHOOK_SECRET', 'N8N_INTAKE_URL')) {
+foreach ($k in @('LLM_API_KEY', 'LLM_BASE_URL', 'LLM_MODEL', 'N8N_WEBHOOK_SECRET', 'N8N_INTAKE_URL', 'FCM_SERVICE_ACCOUNT_FILE', 'FCM_PROJECT_ID')) {
   if ($optional[$k]) { $apiVars[$k] = $optional[$k] }
 }
 Start-Node 'api' (Join-Path $root 'api') $apiVars 'dist/index.js'

@@ -59,6 +59,7 @@ server/*/node_modules/
 server/*/dist/
 server/.env
 server/web/
-server/secrets/
+server/secrets/*
+!server/secrets/README.md
 server/.env.local
 server/.secrets.local
