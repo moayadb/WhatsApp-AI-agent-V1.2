@@ -11,6 +11,7 @@
 //
 // No dependencies on purpose: node built-ins only.
 const http = require('node:http');
+const net = require('node:net');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -80,29 +81,28 @@ const server = http.createServer((req, res) => {
 });
 
 // WebSocket upgrades (the live alert feed) have to be forwarded by hand.
+//
+// A raw TCP relay, not http.request: parsing and re-emitting the frames broke
+// client→server masking ("Invalid WebSocket frame: MASK must be set" on the
+// API side), which killed the socket on the first message. Replaying the
+// handshake bytes verbatim and splicing the two sockets together means this
+// proxy never interprets a single frame.
 server.on('upgrade', (req, socket, head) => {
-  const target = new URL(req.url, API);
-  const proxied = http.request({
-    hostname: target.hostname,
-    port: target.port,
-    path: target.pathname + target.search,
-    method: 'GET',
-    headers: req.headers,
-  });
-  proxied.on('upgrade', (upstreamRes, upstreamSocket, upstreamHead) => {
-    socket.write(
-      'HTTP/1.1 101 Switching Protocols\r\n' +
-        Object.entries(upstreamRes.headers)
-          .map(([k, v]) => `${k}: ${v}`)
-          .join('\r\n') +
-        '\r\n\r\n',
+  const target = new URL(API);
+  const upstream = net.connect(Number(target.port || 80), target.hostname, () => {
+    const headerLines = [];
+    for (let i = 0; i < req.rawHeaders.length; i += 2) {
+      headerLines.push(`${req.rawHeaders[i]}: ${req.rawHeaders[i + 1]}`);
+    }
+    upstream.write(
+      `GET ${req.url} HTTP/1.1\r\n${headerLines.join('\r\n')}\r\n\r\n`,
     );
-    if (upstreamHead?.length) socket.unshift(upstreamHead);
-    upstreamSocket.pipe(socket).pipe(upstreamSocket);
+    if (head?.length) upstream.write(head);
+    socket.pipe(upstream);
+    upstream.pipe(socket);
   });
-  proxied.on('error', () => socket.destroy());
-  if (head?.length) proxied.write(head);
-  proxied.end();
+  upstream.on('error', () => socket.destroy());
+  socket.on('error', () => upstream.destroy());
 });
 
 // All interfaces, not loopback only: on this machine a VPN client blocks
