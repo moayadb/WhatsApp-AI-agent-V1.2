@@ -28,6 +28,110 @@ Heads-up:  anything the other stream or the runbook should know.
 
 ---
 
+### 2026-08-20 — canvas legibility: split the judge assembly, sticky notes on both canvases
+Done:      Committed 67805a5. Both workflows deployed to live and verified by
+           hash. Live tests below.
+
+           "Build messages" in the analysis workflow is now two nodes:
+           "Assemble org rules" (this org's monitoring prompt, the output
+           contract, which language to write in) → "Assemble conversation"
+           (thread lines, the message being judged, and for images the image
+           content part). Each opens with an EMITS: header saying what it
+           hands on. "Shape verdict" reads kind/locale/transcript off the node
+           that emits the messages, so its `$('Build messages')` reference
+           moved to `$('Assemble conversation')` — that rename is the only
+           edit to that node.
+
+           Sticky notes: analysis gets three — media routing and why Whisper
+           is not given a language hint; that ids never round-trip through the
+           model; and that the response shape is contract 2 and needs a
+           two-sided change. Intake gets two — the three modes, and why topics
+           mode is cheap and throws rather than returning [].
+
+           NO BEHAVIOUR CHANGE, and not just by intention. I extracted the old
+           single node from git HEAD and ran it and the new pair over 39 input
+           shapes — every locale x VIP x detector combination across text,
+           image and audio, plus empty thread, missing body and empty
+           transcription — and the built `messages` are byte-identical in all
+           39. Shape verdict output is identical for all three kinds. 18/18
+           offline checks.
+
+           LIVE TESTS — after the refactor
+
+           Arabic text with a violation (locale=ar)
+             unauthorized_promise / high. Title, insight and action all Arabic.
+             evidence.quote verbatim Arabic, untranslated.
+           Image (locale=ar, no caption, empty thread)
+             needs_attention=false, description in Arabic:
+             "صورة لإيصال دفع يظهر تفاصيل دفع مبلغ 50,000 درهم إماراتي لوحدة في
+              برج مارينا، مع تأكيد إيداع المبلغ بتاريخ 12 أغسطس 2026."
+           Voice note, English speech (locale=ar)
+             escalation / urgent. Summary Arabic; transcript = English verbatim
+             then "الترجمة: …". Title and insight came back word-for-word
+             identical to the pre-refactor run.
+           mode=topics, Arabic prompt (locale=ar)
+             وعود غير معتمدة · نقل العميل خارج القناة · عملاء غاضبون أو مهددون ·
+             طلبات استرداد وإلغاء · عملاء مهمون
+           mode=topics, English prompt (locale=en) — a dental clinic, to check
+           it uses the prompt's own vocabulary rather than generic categories
+             Clinical advice over chat · Unhonourable quoted price ·
+             Distressed patient triage · Complaint escalation threats ·
+             No-show and cancellation risk
+           mode=topics, Arabic prompt but locale=en
+             English labels from Arabic source — locale still wins.
+           mode=topics with no current_prompt
+             empty 200, i.e. failure, so the API keeps the previous topics.
+           Regression: interview mid-turn done=false topics=[]; refine added
+           ألفاظ غير لائقة and kept the other five.
+
+           ONE OUTPUT DID DIFFER, and you asked me to say so rather than paper
+           over it. The image description came back worded slightly
+           differently from the pre-refactor run — same facts, same language,
+           same verdict, different sentence.
+
+           It is sampling, not the refactor, and here is the evidence rather
+           than my opinion: I ran the same image through the SAME deployed
+           code three times. Runs 2 and 3 are character-identical to each
+           other; run 1 differs from both by two words
+           ("تأكيد إيداع بتاريخ" vs "تأكيد إيداع المبلغ بتاريخ"). Identical
+           code, different output, so vision at temperature 0 is not fully
+           deterministic. The guarantee that matters is upstream and is exact:
+           the request payload is byte-identical across 39 input shapes. I did
+           not touch a prompt to make the text match.
+
+Question:  Nothing blocking.
+
+           Still open from 2026-08-19, both yours rather than mine: contract 2
+           describes `title` as "in the conversation's language" while
+           contract 1 now governs it by `locale`; and the interviewer emits
+           `alert_after_no_reply_minutes`, which no contract lists and the API
+           silently drops.
+
+Heads-up:  How I deployed, because it is worth knowing and worth writing into
+           the runbook if you agree with it. Screenshots of the n8n canvas
+           froze the renderer repeatedly this session, and I was not willing
+           to do a select-all-delete-paste on a live Active workflow blind. So
+           I deployed through n8n's own REST API from the editor page, which
+           is already authenticated as you: GET the workflow, PATCH nodes +
+           connections + settings with the versionId for optimistic locking,
+           then GET again and compare SHA-256 of every Code node against the
+           committed file. All four analysis hashes and both intake hashes
+           match, webhook paths unchanged, OpenAI credential still bound to
+           both nodes, both still Active.
+
+           The workflow JSON reached the page without passing through my
+           context: I put it on the Windows clipboard, pasted it into a
+           throwaway textarea with a real Ctrl+V, and checked its SHA-256
+           against the local file BEFORE decoding or writing anything. A
+           transfer error would have been caught before any write. The
+           textarea is removed.
+
+           This is cheaper, atomic and verifiable in a way clicking is not,
+           and it is how I would do future deploys unless you object.
+
+           `n8n/*.json` in the repo still carries `__N8N_WEBHOOK_SECRET__`;
+           substitution happens outside the repo at deploy time.
+
 ### 2026-08-19 — AI output language follows the manager's locale; intake returns topics
 Done:      Both workflows are updated and saved on the live n8n instance, and
            all seven live scenarios pass. Results at the bottom of this entry.
