@@ -113,7 +113,7 @@
       "typeVersion": 1.1,
       "position": [
         20,
-        60
+        160
       ]
     },
     {
@@ -147,7 +147,7 @@
       "typeVersion": 4.2,
       "position": [
         240,
-        60
+        160
       ],
       "credentials": {
         "openAiApi": {
@@ -158,14 +158,27 @@
     },
     {
       "parameters": {
-        "jsCode": "// Assemble the judge request. Reached three ways:\n//   text  -> straight from Prepare\n//   image -> straight from Prepare (the judge model sees the image itself)\n//   audio -> via Whisper, $json.text is the transcription\nconst prep = $('Prepare').first().json;\nconst cur = $input.first().json;\n\nconst kind = prep.kind;\nconst transcript = kind === 'audio' ? String(cur.text ?? '').trim() : '';\n\n// The manager's app language. Whisper is deliberately NOT told which language\n// to expect — it transcribes what was actually spoken — so for audio the\n// verbatim text may be in a different language from everything below it.\nconst locale = prep.locale === 'en' ? 'en' : 'ar';\nconst langName = locale === 'en' ? 'English' : 'Arabic';\n\nconst agent = prep.contact?.agent_name || 'the agent';\nconst client = prep.contact?.display_name || 'the client';\n\nconst lines = (prep.thread ?? []).map((m) => {\n  const who = m.direction === 'in' ? 'Client' : 'Agent';\n  const text = m.transcript || m.body || ('[' + (m.media_type || 'message') + ']');\n  return who + ': ' + text;\n});\n\nconst orgPrompt = prep.org_prompt ||\n  'You review WhatsApp conversations between staff and clients. Alert the manager when a staff member promises something the company may not honour, moves the client off the official channel, or when the client is angry, threatening to leave, or asking for a manager.';\n\nconst disabled = [];\nif (prep.detect_unauthorized_promise === false) disabled.push('unauthorized_promise');\nif (prep.detect_off_channel === false) disabled.push('off_channel');\n\n// Fields the model writes that must land in the manager's language. Listing\n// them by name beats a general instruction: the earlier \"same language as the\n// conversation\" wording left media analysis with nothing to infer from.\nconst written = ['title', 'insight', 'recommended_action'];\nif (kind === 'image') written.push('media_description');\nif (kind === 'audio') written.push('transcript_translation');\n\nconst system = orgPrompt + `\n\n---\nOUTPUT CONTRACT (mandatory, overrides anything above about formatting)\n\nYou are judging whether the SALES MANAGER must personally intervene in this conversation. Most messages need nothing: when in doubt, do not alert — a false alarm costs more than a miss, because a noisy feed stops being read.\n\nDo NOT alert for slow replies or silence; those are measured precisely elsewhere.${disabled.length ? '\\nNEVER use these types (disabled by the manager): ' + disabled.join(', ') + '.' : ''}\n\nOUTPUT LANGUAGE\nWrite these fields in ${langName}: ${written.join(', ')}.\n${langName} is the manager's app language. It does NOT depend on the language of the conversation — write ${langName} even when the client and the agent are speaking something else, and even when the message you are judging has no text at all.\n\nThe ONE exception is \"evidence.quote\": copy the triggering words verbatim, in the language they were actually written or spoken in. Never translate, tidy or shorten a quote — it is evidence, and the manager checks it against the real chat.\n\nName the people: the agent is \"${agent}\", the client is \"${client}\"${prep.contact?.is_vip ? ' (VIP client)' : ''}.\n\nRESPOND ONLY WITH JSON:\n{\n  \"needs_attention\": false,\n  \"type\": \"unauthorized_promise\" | \"off_channel\" | \"escalation\" | \"other\",\n  \"severity\": \"urgent\" | \"high\" | \"medium\" | \"low\",\n  \"title\": \"short headline naming who did what\",\n  \"insight\": \"one or two sentences the manager can act on\",\n  \"recommended_action\": \"the single next step\",\n  \"evidence\": { \"quote\": \"the exact words that triggered this, copied verbatim\" },\n  \"media_description\": \"\",\n  \"transcript_translation\": \"\"\n}\n${kind === 'image' ? '\\n\"media_description\" is REQUIRED here: one factual sentence in ' + langName + ' describing what the attached image shows, including any text visible in it — even when needs_attention is false. If the image contains text in another language, render its meaning inside your ' + langName + ' sentence. Leave \"transcript_translation\" empty.' : ''}${kind === 'audio' ? '\\nThe voice note above was transcribed verbatim, in whatever language the speaker actually used. If that is not ' + langName + ', put a faithful ' + langName + ' translation of the whole transcription in \"transcript_translation\" — the manager may not read the spoken language. If it is already ' + langName + ', leave \"transcript_translation\" empty. Never edit or replace the verbatim transcription itself. Leave \"media_description\" empty.' : ''}${kind === 'text' ? '\\nLeave \"media_description\" and \"transcript_translation\" empty.' : ''}\n\nIf nothing requires the manager, return needs_attention: false and leave the alert fields empty${kind === 'image' ? ' — but still fill \"media_description\"' : ''}${kind === 'audio' ? ' — but still fill \"transcript_translation\" if a translation is needed' : ''}.`;\n\nconst newestWho = prep.message?.direction === 'in' ? 'Client' : 'Agent';\nlet newest;\nif (kind === 'audio') {\n  newest = newestWho + ' (voice note, transcribed verbatim in the language spoken): ' + (transcript || '[unintelligible]');\n} else if (kind === 'image') {\n  newest = newestWho + ' sent the attached image' + (prep.message?.body ? ' with caption: ' + prep.message.body : '') + '.';\n} else {\n  newest = newestWho + ': ' + (prep.message?.body || '[' + (prep.message?.media_type || 'message') + ']');\n}\n\nconst userText = 'Conversation (oldest first):\\n' + lines.join('\\n').slice(-6000) +\n  '\\n\\nNewest message (the one to judge, in context): ' + newest;\n\nconst userContent = kind === 'image'\n  ? [\n      { type: 'text', text: userText },\n      { type: 'image_url', image_url: { url: 'data:' + prep.media_mime + ';base64,' + prep.media_base64 } },\n    ]\n  : userText;\n\nreturn [{\n  json: {\n    kind,\n    locale,\n    transcript,\n    messages: [\n      { role: 'system', content: system },\n      { role: 'user', content: userContent },\n    ],\n  },\n}];"
+        "jsCode": "// EMITS: { kind, locale, transcript, system }\n//   system     — the judge's instructions: this org's own monitoring prompt,\n//                the output contract, and which language to write in\n//   transcript — the Whisper text, for audio only; passed along because the\n//                next node and \"Shape verdict\" both need it\n//\n// Reached three ways:\n//   text  -> straight from Prepare\n//   image -> straight from Prepare (the judge model sees the image itself)\n//   audio -> via Whisper, $json.text is the transcription\nconst prep = $('Prepare').first().json;\nconst cur = $input.first().json;\n\nconst kind = prep.kind;\nconst transcript = kind === 'audio' ? String(cur.text ?? '').trim() : '';\n\n// The manager's app language. Whisper is deliberately NOT told which language\n// to expect — it transcribes what was actually spoken — so for audio the\n// verbatim text may be in a different language from everything below it.\nconst locale = prep.locale === 'en' ? 'en' : 'ar';\nconst langName = locale === 'en' ? 'English' : 'Arabic';\n\nconst agent = prep.contact?.agent_name || 'the agent';\nconst client = prep.contact?.display_name || 'the client';\n\nconst orgPrompt = prep.org_prompt ||\n  'You review WhatsApp conversations between staff and clients. Alert the manager when a staff member promises something the company may not honour, moves the client off the official channel, or when the client is angry, threatening to leave, or asking for a manager.';\n\nconst disabled = [];\nif (prep.detect_unauthorized_promise === false) disabled.push('unauthorized_promise');\nif (prep.detect_off_channel === false) disabled.push('off_channel');\n\n// Fields the model writes that must land in the manager's language. Listing\n// them by name beats a general instruction: the earlier \"same language as the\n// conversation\" wording left media analysis with nothing to infer from.\nconst written = ['title', 'insight', 'recommended_action'];\nif (kind === 'image') written.push('media_description');\nif (kind === 'audio') written.push('transcript_translation');\n\nconst system = orgPrompt + `\n\n---\nOUTPUT CONTRACT (mandatory, overrides anything above about formatting)\n\nYou are judging whether the SALES MANAGER must personally intervene in this conversation. Most messages need nothing: when in doubt, do not alert — a false alarm costs more than a miss, because a noisy feed stops being read.\n\nDo NOT alert for slow replies or silence; those are measured precisely elsewhere.${disabled.length ? '\\nNEVER use these types (disabled by the manager): ' + disabled.join(', ') + '.' : ''}\n\nOUTPUT LANGUAGE\nWrite these fields in ${langName}: ${written.join(', ')}.\n${langName} is the manager's app language. It does NOT depend on the language of the conversation — write ${langName} even when the client and the agent are speaking something else, and even when the message you are judging has no text at all.\n\nThe ONE exception is \"evidence.quote\": copy the triggering words verbatim, in the language they were actually written or spoken in. Never translate, tidy or shorten a quote — it is evidence, and the manager checks it against the real chat.\n\nName the people: the agent is \"${agent}\", the client is \"${client}\"${prep.contact?.is_vip ? ' (VIP client)' : ''}.\n\nRESPOND ONLY WITH JSON:\n{\n  \"needs_attention\": false,\n  \"type\": \"unauthorized_promise\" | \"off_channel\" | \"escalation\" | \"other\",\n  \"severity\": \"urgent\" | \"high\" | \"medium\" | \"low\",\n  \"title\": \"short headline naming who did what\",\n  \"insight\": \"one or two sentences the manager can act on\",\n  \"recommended_action\": \"the single next step\",\n  \"evidence\": { \"quote\": \"the exact words that triggered this, copied verbatim\" },\n  \"media_description\": \"\",\n  \"transcript_translation\": \"\"\n}\n${kind === 'image' ? '\\n\"media_description\" is REQUIRED here: one factual sentence in ' + langName + ' describing what the attached image shows, including any text visible in it — even when needs_attention is false. If the image contains text in another language, render its meaning inside your ' + langName + ' sentence. Leave \"transcript_translation\" empty.' : ''}${kind === 'audio' ? '\\nThe voice note above was transcribed verbatim, in whatever language the speaker actually used. If that is not ' + langName + ', put a faithful ' + langName + ' translation of the whole transcription in \"transcript_translation\" — the manager may not read the spoken language. If it is already ' + langName + ', leave \"transcript_translation\" empty. Never edit or replace the verbatim transcription itself. Leave \"media_description\" empty.' : ''}${kind === 'text' ? '\\nLeave \"media_description\" and \"transcript_translation\" empty.' : ''}\n\nIf nothing requires the manager, return needs_attention: false and leave the alert fields empty${kind === 'image' ? ' — but still fill \"media_description\"' : ''}${kind === 'audio' ? ' — but still fill \"transcript_translation\" if a translation is needed' : ''}.`;\n\nreturn [{ json: { kind, locale, transcript, system } }];"
       },
-      "id": "code-build",
-      "name": "Build messages",
+      "id": "code-org-rules",
+      "name": "Assemble org rules",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// EMITS: { kind, locale, transcript, messages }\n//   messages — the finished chat request: the system message built upstream,\n//              plus one user message holding the thread, the message being\n//              judged, and for images the image itself as a content part\n//\n// \"Shape verdict\" reads kind/locale/transcript back off THIS node, so the\n// three ride along unchanged.\nconst prep = $('Prepare').first().json;\nconst rules = $input.first().json;\n\nconst kind = rules.kind;\nconst locale = rules.locale;\nconst transcript = rules.transcript;\n\nconst lines = (prep.thread ?? []).map((m) => {\n  const who = m.direction === 'in' ? 'Client' : 'Agent';\n  const text = m.transcript || m.body || ('[' + (m.media_type || 'message') + ']');\n  return who + ': ' + text;\n});\n\nconst newestWho = prep.message?.direction === 'in' ? 'Client' : 'Agent';\nlet newest;\nif (kind === 'audio') {\n  newest = newestWho + ' (voice note, transcribed verbatim in the language spoken): ' + (transcript || '[unintelligible]');\n} else if (kind === 'image') {\n  newest = newestWho + ' sent the attached image' + (prep.message?.body ? ' with caption: ' + prep.message.body : '') + '.';\n} else {\n  newest = newestWho + ': ' + (prep.message?.body || '[' + (prep.message?.media_type || 'message') + ']');\n}\n\nconst userText = 'Conversation (oldest first):\\n' + lines.join('\\n').slice(-6000) +\n  '\\n\\nNewest message (the one to judge, in context): ' + newest;\n\nconst userContent = kind === 'image'\n  ? [\n      { type: 'text', text: userText },\n      { type: 'image_url', image_url: { url: 'data:' + prep.media_mime + ';base64,' + prep.media_base64 } },\n    ]\n  : userText;\n\nreturn [{\n  json: {\n    kind,\n    locale,\n    transcript,\n    messages: [\n      { role: 'system', content: rules.system },\n      { role: 'user', content: userContent },\n    ],\n  },\n}];"
+      },
+      "id": "code-conversation",
+      "name": "Assemble conversation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
         0
       ]
     },
@@ -187,7 +200,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        680,
+        900,
         0
       ],
       "credentials": {
@@ -199,14 +212,14 @@
     },
     {
       "parameters": {
-        "jsCode": "// Parse + clamp the verdict, and attach the media transcript/description the\n// app stores on the message row.\nconst built = $('Build messages').first().json;\nconst raw = $input.first().json;\nconst content = raw?.choices?.[0]?.message?.content ?? '';\n\nconst locale = built.locale === 'en' ? 'en' : 'ar';\n// Labels the manager reads, so they follow the manager's language too.\nconst TRANSLATION_LABEL = { ar: 'الترجمة', en: 'Translation' };\n\n// A voice note is stored verbatim in the language it was spoken, because\n// evidence has to survive; the translation is appended beneath it so an\n// Arabic-only manager can still read an English client. Same field, because\n// messages.transcript is what the app renders for a voice note.\nfunction composeTranscript(parsed) {\n  if (built.kind === 'audio') {\n    const verbatim = String(built.transcript || '').trim();\n    const translated = String(parsed.transcript_translation ?? '').trim().slice(0, 2000);\n    if (!verbatim) return '';\n    if (!translated || translated === verbatim) return verbatim;\n    return verbatim + '\\n\\n' + TRANSLATION_LABEL[locale] + ': ' + translated;\n  }\n  return String(parsed.media_description ?? '').slice(0, 2000);\n}\n\nlet parsed;\ntry {\n  parsed = JSON.parse(content);\n} catch (e) {\n  const start = content.indexOf('{');\n  const end = content.lastIndexOf('}');\n  if (start === -1 || end <= start) {\n    // Unparseable: keep the verbatim transcription anyway, it cost a Whisper\n    // call and is still worth storing as thread context.\n    return [{ json: { needs_attention: false, transcript: String(built.transcript || '') } }];\n  }\n  parsed = JSON.parse(content.slice(start, end + 1));\n}\n\nconst TYPES = ['unauthorized_promise', 'off_channel', 'escalation', 'other'];\nconst SEVERITIES = ['urgent', 'high', 'medium', 'low'];\n\nreturn [{\n  json: {\n    needs_attention: parsed.needs_attention === true,\n    type: TYPES.includes(parsed.type) ? parsed.type : 'other',\n    severity: SEVERITIES.includes(parsed.severity) ? parsed.severity : 'medium',\n    title: String(parsed.title ?? '').slice(0, 300),\n    insight: String(parsed.insight ?? '').slice(0, 2000),\n    recommended_action: String(parsed.recommended_action ?? '').slice(0, 1000),\n    evidence: typeof parsed.evidence === 'object' && parsed.evidence !== null ? parsed.evidence : {},\n    transcript: composeTranscript(parsed),\n  },\n}];"
+        "jsCode": "// Parse + clamp the verdict, and attach the media transcript/description the\n// app stores on the message row.\nconst built = $('Assemble conversation').first().json;\nconst raw = $input.first().json;\nconst content = raw?.choices?.[0]?.message?.content ?? '';\n\nconst locale = built.locale === 'en' ? 'en' : 'ar';\n// Labels the manager reads, so they follow the manager's language too.\nconst TRANSLATION_LABEL = { ar: 'الترجمة', en: 'Translation' };\n\n// A voice note is stored verbatim in the language it was spoken, because\n// evidence has to survive; the translation is appended beneath it so an\n// Arabic-only manager can still read an English client. Same field, because\n// messages.transcript is what the app renders for a voice note.\nfunction composeTranscript(parsed) {\n  if (built.kind === 'audio') {\n    const verbatim = String(built.transcript || '').trim();\n    const translated = String(parsed.transcript_translation ?? '').trim().slice(0, 2000);\n    if (!verbatim) return '';\n    if (!translated || translated === verbatim) return verbatim;\n    return verbatim + '\\n\\n' + TRANSLATION_LABEL[locale] + ': ' + translated;\n  }\n  return String(parsed.media_description ?? '').slice(0, 2000);\n}\n\nlet parsed;\ntry {\n  parsed = JSON.parse(content);\n} catch (e) {\n  const start = content.indexOf('{');\n  const end = content.lastIndexOf('}');\n  if (start === -1 || end <= start) {\n    // Unparseable: keep the verbatim transcription anyway, it cost a Whisper\n    // call and is still worth storing as thread context.\n    return [{ json: { needs_attention: false, transcript: String(built.transcript || '') } }];\n  }\n  parsed = JSON.parse(content.slice(start, end + 1));\n}\n\nconst TYPES = ['unauthorized_promise', 'off_channel', 'escalation', 'other'];\nconst SEVERITIES = ['urgent', 'high', 'medium', 'low'];\n\nreturn [{\n  json: {\n    needs_attention: parsed.needs_attention === true,\n    type: TYPES.includes(parsed.type) ? parsed.type : 'other',\n    severity: SEVERITIES.includes(parsed.severity) ? parsed.severity : 'medium',\n    title: String(parsed.title ?? '').slice(0, 300),\n    insight: String(parsed.insight ?? '').slice(0, 2000),\n    recommended_action: String(parsed.recommended_action ?? '').slice(0, 1000),\n    evidence: typeof parsed.evidence === 'object' && parsed.evidence !== null ? parsed.evidence : {},\n    transcript: composeTranscript(parsed),\n  },\n}];"
       },
       "id": "code-shape",
       "name": "Shape verdict",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        900,
+        1120,
         0
       ]
     },
@@ -221,8 +234,56 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1120,
+        1340,
         0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Routing by media type\n\n`Prepare` classifies the message from `media_mime`, then `Route by kind` sends it one of three ways:\n\n- **text** → straight to the judge\n- **image** → straight to the judge; the image travels as a content part, so the model actually sees it\n- **audio** → Whisper first, then the judge\n\nWhisper is deliberately **not** told which language to expect, so the transcription stays faithful to what was spoken. The manager's language is applied to the summary instead.",
+        "height": 260,
+        "width": 560,
+        "color": 4
+      },
+      "id": "note-routing",
+      "name": "Note — routing",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## The model never sees ids\n\n`wa` keeps the org / conversation / agent / contact / message ids and attaches them itself when it posts the verdict to the API.\n\nNothing in this workflow round-trips them. Editing these prompts therefore cannot mis-attribute an alert to the wrong agent — or, worse, the wrong tenant.\n\nSee **DO NOT UNDO** in `docs/DECISIONS.md`.",
+        "height": 240,
+        "width": 520,
+        "color": 3
+      },
+      "id": "note-ids",
+      "name": "Note — attribution",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        860,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Response contract\n\n`Shape verdict` returns exactly the shape in **contract 2** of `docs/CONTRACTS.md`.\n\nUnknown `type` / `severity` values are **clamped, not rejected**, so a creative model degrades to `other` / `medium` instead of losing the alert entirely.\n\n`transcript` is stored on the message row whether or not `needs_attention` is true.\n\nChanging this shape means changing `server/wa/src/ingest.ts` in the same branch, or alerts quietly stop appearing.",
+        "height": 260,
+        "width": 520,
+        "color": 5
+      },
+      "id": "note-contract",
+      "name": "Note — response contract",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        200
       ]
     }
   ],
@@ -253,7 +314,7 @@
       "main": [
         [
           {
-            "node": "Build messages",
+            "node": "Assemble org rules",
             "type": "main",
             "index": 0
           }
@@ -267,7 +328,7 @@
         ],
         [
           {
-            "node": "Build messages",
+            "node": "Assemble org rules",
             "type": "main",
             "index": 0
           }
@@ -289,18 +350,7 @@
       "main": [
         [
           {
-            "node": "Build messages",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Build messages": {
-      "main": [
-        [
-          {
-            "node": "Model (OpenAI)",
+            "node": "Assemble org rules",
             "type": "main",
             "index": 0
           }
@@ -323,6 +373,28 @@
         [
           {
             "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble org rules": {
+      "main": [
+        [
+          {
+            "node": "Assemble conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble conversation": {
+      "main": [
+        [
+          {
+            "node": "Model (OpenAI)",
             "type": "main",
             "index": 0
           }

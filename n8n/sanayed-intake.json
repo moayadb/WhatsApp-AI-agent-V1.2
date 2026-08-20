@@ -86,6 +86,38 @@
         740,
         0
       ]
+    },
+    {
+      "parameters": {
+        "content": "## Three modes\n\nSet by `mode` in the request — see **contract 6** in `docs/CONTRACTS.md`.\n\n- **interview** (default) — one question at a time until it can write the org's monitoring prompt. `topics` stay empty until `done` is true.\n- **refine** — the manager asks for a change to an existing prompt. Returns the COMPLETE updated prompt and regenerates **all** topics, not just the rule that changed.\n- **topics** — no conversation at all: read `current_prompt`, return only its labels. Used for prompt writes that never went through a chat (manual edit, backfill), so every prompt has topics.",
+        "height": 300,
+        "width": 620,
+        "color": 4
+      },
+      "id": "note-modes",
+      "name": "Note — modes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Cost and failure\n\n`Build messages` emits `max_tokens` and `temperature`; the Model node reads them with `?? 6000` / `?? 0.4` defaults.\n\n`topics` mode runs on **every** manual prompt edit and across every org during a backfill, so it uses **400 tokens at temperature 0.2** — labels, not prose, and stable enough that similar orgs do not get visibly different vocabulary.\n\nIf topics mode produces no labels it **throws**. Returning `[]` would look like success and let the API overwrite a good list with nothing.",
+        "height": 300,
+        "width": 480,
+        "color": 5
+      },
+      "id": "note-cost",
+      "name": "Note — cost",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        620,
+        240
+      ]
     }
   ],
   "connections": {
